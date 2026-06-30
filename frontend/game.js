@@ -361,11 +361,25 @@ class LumiaFarm {
     const plotCols = [0, 1, 4, 5];
     const topOpts = { 0: { mine: true }, 1: { locked: 2 }, 4: {}, 5: { locked: 1 } };
     const botOpts = { 0: {}, 1: { locked: 1 }, 4: { locked: 2 }, 5: {} };
+    // 농지 주인 이름 (위/아래 줄). 0번 위 = 나(this.name)
+    const topNames = { 0: this.name, 1: "Mina", 4: "Aria", 5: "Jun" };
+    const botNames = { 0: "Luna", 1: "Pico", 4: "Sora", 5: "Hana" };
+    this.plots = [];
     plotCols.forEach((i) => {
       buildPlot(colsX[i], topY, plotW, plotH, Object.assign({ gate: "bottom", midPath: true }, topOpts[i]));
+      this.plots.push({ x: colsX[i], y: topY, w: plotW, h: plotH, gate: "bottom", owner: topNames[i], mine: i === 0 });
       buildPlot(colsX[i], botY, plotW, plotH, Object.assign({ gate: "top", midPath: true }, botOpts[i]));
+      this.plots.push({ x: colsX[i], y: botY, w: plotW, h: plotH, gate: "top", owner: botNames[i], mine: false });
     });
-    this.myPlot = { x: colsX[0], y: topY, w: plotW, h: plotH };
+    this.myPlot = this.plots.find((p) => p.mine);
+
+    // 농지 앞(게이트 쪽) 주인 팻말 — 위 농지는 아래쪽, 아래 농지는 위쪽
+    this.signs = this.plots.map((pl) => {
+      const midx = pl.x + Math.floor(pl.w / 2);
+      const px = midx * this.TILE;
+      const py = (pl.gate === "bottom" ? pl.y + pl.h + 0.5 : pl.y - 0.5) * this.TILE;
+      return { px, py, label: pl.owner, mine: pl.mine };
+    });
 
     // 좌/우 쌍 사이 중앙 마켓 광장(포장 바닥)
     for (let y = 8; y <= 33; y++) for (let x = colsX[2]; x <= colsX[3] + plotW - 1; x++) { if (g[y] && g[y][x] && g[y][x].t !== "road") g[y][x] = { t: "floor" }; }
@@ -400,8 +414,11 @@ class LumiaFarm {
       { name: "Pico", x: (20) * this.TILE, y: (21) * this.TILE, color: "#aed581", anim: 0 },
     ];
 
-    // 내 농장 로컬 (6,10) 울타리 제거 (농장 왼쪽 위 = 0,0)
-    this.removeFenceLocal(6, 10);
+    // 모든 농지의 게이트 옆 울타리 제거 (농장 왼쪽 위 = 0,0 기준 로컬 (6,10)).
+    // 위 농지는 (6,10), 아래 농지는 상하 반전한 (6,-1) 위치를 제거한다.
+    for (const pl of this.plots) {
+      this.removeFenceForPlot(pl, 6, pl.gate === "bottom" ? 10 : -1);
+    }
 
     // 울타리 타일은 이동 불가(게이트는 울타리가 없어 통과 가능)
     this.blocked = new Set();
@@ -415,10 +432,10 @@ class LumiaFarm {
   // 농장 로컬 좌표 → 월드 타일. 로컬 (0,0) = 울타리 안쪽 첫 타일(왼쪽 위)
   farmTile(lx, ly) { return { wx: this.myPlot.x + 1 + lx, wy: this.myPlot.y + 1 + ly }; }
 
-  // 농장 로컬 좌표의 울타리를 제거하고 잔디로 되돌림
-  removeFenceLocal(lx, ly) {
-    if (!this.myPlot) return;
-    const { wx, wy } = this.farmTile(lx, ly);
+  // 지정한 농지의 로컬 좌표(왼쪽 위 안쪽 첫 타일 = 0,0) 울타리를 제거하고 잔디로 되돌림
+  removeFenceForPlot(plot, lx, ly) {
+    if (!plot) return;
+    const wx = plot.x + 1 + lx, wy = plot.y + 1 + ly;
     this.fences = this.fences.filter((f) => !(f.gx === wx && f.gy === wy));
     if (this.grid[wy] && this.grid[wy][wx]) this.grid[wy][wx] = { t: "grass", v: 1 };
   }
@@ -557,6 +574,7 @@ class LumiaFarm {
   detectHint() {
     const gx = Math.floor(this.player.x / this.TILE), gy = Math.floor(this.player.y / this.TILE);
     let hint = null, tip = null;
+    this.nearForeign = null;
     // 상점은 바로 아래(하단 부분) 칸에 서야 상호작용
     for (const b of this.buildings) {
       const frontY = b.gy + b.h; // 건물 바로 아래 줄
@@ -564,19 +582,29 @@ class LumiaFarm {
     }
     if (!hint) {
       this.nearBuilding = null;
+      this.nearCrop = null; this.nearEmpty = null;
       const cell = this.grid[gy] && this.grid[gy][gx];
       const crop = this.crops.find((c) => c.gx === gx && c.gy === gy);
+      const mine = this.inMyPlot(gx, gy);
       if (crop) {
         const info = this.CROPINFO[crop.crop] || { name: "", emoji: "❔" };
-        if (crop.ready) { hint = { text: "수확하기", key: "E" }; this.nearCrop = crop; this.nearEmpty = null; tip = { emoji: info.emoji, name: info.name, ready: true, time: "" }; }
-        else {
-          this.nearCrop = null; this.nearEmpty = null;
-          const per = crop.secTotal / 3;
-          const totalLeft = (2 - crop.stage) * per + crop.growLeft;
-          tip = { emoji: info.emoji, name: info.name, ready: false, time: this.fmtTime(totalLeft) };
+        if (crop.ready && mine) {
+          hint = { text: "수확하기", key: "E" }; this.nearCrop = crop;
+          tip = { emoji: info.emoji, name: info.name, ready: true, time: "" };
+        } else {
+          // 남의 농지 작물은 정보만 표시(재배·수확 불가)
+          if (!mine) this.nearForeign = "crop";
+          if (crop.ready) tip = { emoji: info.emoji, name: info.name, ready: true, time: "" };
+          else {
+            const per = crop.secTotal / 3;
+            const totalLeft = (2 - crop.stage) * per + crop.growLeft;
+            tip = { emoji: info.emoji, name: info.name, ready: false, time: this.fmtTime(totalLeft) };
+          }
         }
-      } else if (cell && cell.t === "soil" && this.inMyPlot(gx, gy)) { hint = { text: "씨앗 심기", key: "E" }; this.nearEmpty = { gx, gy }; this.nearCrop = null; }
-      else { this.nearCrop = null; this.nearEmpty = null; }
+      } else if (cell && cell.t === "soil") {
+        if (mine) { hint = { text: "씨앗 심기", key: "E" }; this.nearEmpty = { gx, gy }; }
+        else { this.nearForeign = "soil"; } // 남의 농지엔 심을 수 없음
+      }
     }
     this.setHint(!!hint, hint ? hint.text : "", hint ? hint.key : "E");
     this.renderCropTip(tip);
@@ -612,6 +640,8 @@ class LumiaFarm {
   // ---------- 상호작용 ----------
   interact() {
     if (this.nearBuilding) { this.openShop(this.nearBuilding.kind); return; }
+    if (this.nearForeign === "crop") { this.flash("다른 농장의 작물이에요", false); return; }
+    if (this.nearForeign === "soil") { this.flash("여긴 다른 농장이에요", false); return; }
     if (!this.nearCrop && !this.nearEmpty) { this.openShop("inventory"); return; }
     if (this.nearCrop && this.nearCrop.ready) {
       const c = this.nearCrop; c.ready = false; c.stage = 0; c.growLeft = c.secTotal / 3;
@@ -893,6 +923,7 @@ class LumiaFarm {
     const ox = -Math.round(cam.x), oy = -Math.round(cam.y);
     this.drawDecor(x, ox, oy);
     this.drawBuildings(x, ox, oy);
+    this.drawSigns(x, ox, oy);
     this.drawCrops(x, ox, oy);
     this.drawPlayers(x, ox, oy);
     this.drawParticles(x, ox, oy);
@@ -957,6 +988,30 @@ class LumiaFarm {
       x.fillStyle = "#7a5430"; this.roundRect(x, cx - tw / 2, by, tw, bh, 4); x.fill();
       x.strokeStyle = "#5a3d22"; x.lineWidth = 2; this.roundRect(x, cx - tw / 2, by, tw, bh, 4); x.stroke();
       x.fillStyle = "#fff4dd"; x.textBaseline = "middle"; x.fillText(b.label, cx, by + bh / 2 + 1); x.textBaseline = "alphabetic";
+    }
+    x.textAlign = "left";
+  }
+
+  // 농지 앞 주인 팻말 (나무 기둥 + 이름판)
+  drawSigns(x, ox, oy) {
+    x.textAlign = "center";
+    for (const s of this.signs) {
+      const cx = Math.round(s.px + ox), gy = Math.round(s.py + oy);
+      const text = s.mine ? "🏠 내 농장" : "🌱 " + s.label;
+      x.font = "700 11px 'Noto Sans KR'";
+      const tw = x.measureText(text).width + 18, bh = 18, boardY = gy - 34;
+      // 그림자
+      x.fillStyle = "rgba(20,12,4,.28)"; x.beginPath(); x.ellipse(cx, gy + 6, 13, 4, 0, 0, 6.28); x.fill();
+      // 기둥
+      const postTop = boardY + bh - 2, postH = gy - postTop + 6;
+      x.fillStyle = "#6a4a2a"; x.fillRect(cx - 2, postTop, 4, postH);
+      x.fillStyle = "#8a6736"; x.fillRect(cx - 2, postTop, 1, postH);
+      // 이름판
+      x.fillStyle = s.mine ? "#7a5e30" : "#6a4d28";
+      this.roundRect(x, cx - tw / 2, boardY, tw, bh, 4); x.fill();
+      x.strokeStyle = s.mine ? "rgba(255,210,120,.9)" : "#5a3d22"; x.lineWidth = 2;
+      this.roundRect(x, cx - tw / 2, boardY, tw, bh, 4); x.stroke();
+      x.fillStyle = "#fff4dd"; x.textBaseline = "middle"; x.fillText(text, cx, boardY + bh / 2 + 1); x.textBaseline = "alphabetic";
     }
     x.textAlign = "left";
   }
