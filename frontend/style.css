@@ -1,0 +1,364 @@
+/* LUMIA Farm — 2D 탑다운 캔버스 게임 화면 (design_handoff_lumia_farm 기준) */
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: radial-gradient(120% 90% at 50% 0%, #1b2030 0%, #0e0f17 70%);
+  font-family: "Noto Sans KR", sans-serif;
+  min-height: 100vh;
+}
+
+html, body { width: 100%; height: 100%; overflow: hidden; }
+
+.stage {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.viewport {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: #243018;
+}
+
+#game {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  cursor: pointer;
+}
+
+/* ---- 상단 HUD ---- */
+.hud-top {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  z-index: 6;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(46, 30, 18, 0.92) 0%, rgba(46, 30, 18, 0.55) 70%, rgba(46, 30, 18, 0) 100%);
+}
+
+.hud-profile { display: flex; align-items: center; gap: 9px; pointer-events: auto; }
+.hud-avatar {
+  width: 34px; height: 34px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #ffd98a, #e8a24a);
+  box-shadow: 0 0 0 2px #3a2614, inset 0 2px 0 rgba(255, 255, 255, 0.5);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.hud-name { display: flex; flex-direction: column; gap: 2px; }
+.hud-name .name { color: #fff4dd; font-weight: 700; font-size: 13px; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+.hud-name .level { font-family: "Press Start 2P", monospace; font-size: 7px; color: #ffd98a; letter-spacing: .5px; }
+.hud-name .level::before { content: "Lv "; }
+
+.hud-currency { display: flex; align-items: center; gap: 8px; pointer-events: auto; }
+.chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 11px 6px 8px;
+  border-radius: 6px;
+  background: rgba(28, 18, 10, 0.82);
+  box-shadow: inset 0 0 0 1.5px rgba(200, 169, 110, 0.5);
+}
+.chip .ic { font-size: 14px; }
+.chip .val { font-family: "Press Start 2P", monospace; font-size: 10px; }
+.chip .unit { font-family: "Press Start 2P", monospace; font-size: 7px; margin-top: 1px; }
+.chip-gold .val { color: #f0cf8e; }
+.chip-gold .unit { color: #b89760; }
+.chip-luna { background: rgba(10, 22, 30, 0.82); box-shadow: inset 0 0 0 1.5px rgba(79, 195, 247, 0.45); }
+.chip-luna .val { color: #9fdcff; }
+.chip-luna .unit { color: #5c9ec2; }
+.chip-btn {
+  width: 36px; height: 34px;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  color: #f0cf8e;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+/* ---- 하단 상호작용 힌트 ---- */
+.hud-hint {
+  position: absolute;
+  bottom: 74px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 16px 9px 10px;
+  border-radius: 8px;
+  background: rgba(28, 18, 10, 0.9);
+  box-shadow: 0 6px 18px -4px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px rgba(200, 169, 110, 0.55);
+  animation: lumiaPop .18s ease;
+}
+.hud-hint[hidden] { display: none; }
+.hud-hint .key {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 26px; padding: 0 7px;
+  border-radius: 5px;
+  background: linear-gradient(180deg, #fff4dd, #d9bd8f);
+  color: #4a3014;
+  font-family: "Press Start 2P", monospace; font-size: 11px;
+  box-shadow: 0 2px 0 #9a7c4e;
+  animation: lumiaKey 1.1s ease-in-out infinite;
+}
+.hud-hint .text { color: #fff4dd; font-weight: 600; font-size: 13px; }
+
+/* ---- 좌하단 컨트롤 안내 ---- */
+.hud-controls {
+  position: absolute;
+  bottom: 14px; left: 14px;
+  z-index: 5;
+  display: flex; flex-direction: column; gap: 3px;
+  opacity: .5;
+  pointer-events: none;
+}
+.hud-controls span {
+  font-family: "Press Start 2P", monospace;
+  font-size: 6px;
+  color: #fff4dd;
+  letter-spacing: .5px;
+}
+
+/* ---- 우측 TP 버튼 (상점/판매/집) ---- */
+.hud-tp {
+  position: absolute;
+  bottom: 16px; right: 14px;
+  z-index: 6;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.tp-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 54px; padding: 7px 0 5px;
+  border: none; cursor: pointer;
+  border-radius: 12px;
+  background: rgba(58, 38, 20, 0.82);
+  box-shadow: inset 0 0 0 2px rgba(255, 210, 120, 0.45), 0 3px 8px rgba(0, 0, 0, 0.35);
+  transition: transform .08s ease, filter .08s ease;
+}
+.tp-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+.tp-btn:active { transform: translateY(1px) scale(.96); }
+.tp-btn .ic { font-size: 20px; line-height: 1; }
+.tp-btn .lb {
+  font-family: "Press Start 2P", monospace;
+  font-size: 7px; color: #ffe6b3; letter-spacing: .5px;
+}
+
+/* ---- 씨앗 아이템 배지 ---- */
+.hotbar .slot.seed, .inv-cell.seed, .store-cell.seed { box-shadow: inset 0 0 0 2px #8fce5a; }
+.seed-tag {
+  position: absolute; left: 2px; bottom: 1px;
+  font-size: 10px; line-height: 1;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+  pointer-events: none;
+}
+
+@keyframes lumiaFloat { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes lumiaKey { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(2px); } }
+@keyframes lumiaPop { 0% { transform: translateX(-50%) scale(.85); opacity: 0; } 100% { transform: translateX(-50%) scale(1); opacity: 1; } }
+@keyframes lumiaFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes lumiaRise { 0% { transform: translateY(14px) scale(.96); opacity: 0; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+
+/* ---- 작물 정보 툴팁 ---- */
+.crop-tip {
+  position: absolute;
+  z-index: 8;
+  transform: translateX(-50%);
+  pointer-events: none;
+  display: flex; flex-direction: column; align-items: center;
+  animation: lumiaPop .14s ease;
+}
+.crop-tip[hidden] { display: none; }
+.crop-tip .tip-box {
+  display: flex; align-items: center; gap: 7px;
+  padding: 6px 11px; border-radius: 9px;
+  background: rgba(28, 18, 10, 0.92); white-space: nowrap;
+  box-shadow: 0 4px 12px -3px rgba(0, 0, 0, 0.6), inset 0 0 0 1.5px rgba(200, 169, 110, 0.55);
+}
+.crop-tip .tip-emoji { font-size: 17px; }
+.crop-tip .tip-name { color: #fff4dd; font-weight: 800; font-size: 13px; }
+.crop-tip .tip-badge { padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 800; }
+.crop-tip .tip-badge.ready { background: #5fa233; color: #fff; }
+.crop-tip .tip-badge.growing { background: rgba(255, 255, 255, 0.12); color: #ffd98a; font-family: "Press Start 2P", monospace; font-size: 8px; }
+.crop-tip .tip-arrow { width: 0; height: 0; margin-top: -1px; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 7px solid rgba(28, 18, 10, 0.92); }
+
+/* ---- 하단 핫바 ---- */
+.hotbar {
+  position: absolute;
+  bottom: 12px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex; gap: 5px;
+  padding: 6px; border-radius: 11px;
+  background: rgba(28, 18, 10, 0.78);
+  box-shadow: 0 5px 16px -4px rgba(0, 0, 0, 0.55), inset 0 0 0 1.5px rgba(200, 169, 110, 0.4);
+}
+.hotbar .slot {
+  position: relative;
+  width: 44px; height: 44px;
+  border-radius: 8px;
+  background: rgba(20, 12, 6, 0.5);
+  box-shadow: inset 0 0 0 2px rgba(255, 244, 221, 0.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 23px; cursor: pointer;
+  transition: transform .1s ease;
+}
+.hotbar .slot.sel { background: #fff4dd; box-shadow: inset 0 0 0 2px #ffd98a; transform: scale(1.12); }
+.hotbar .slot .num { position: absolute; left: 3px; top: 1px; font-family: "Press Start 2P", monospace; font-size: 7px; color: rgba(120, 95, 55, 0.85); }
+.hotbar .slot .count { position: absolute; right: 2px; bottom: 1px; font-family: "Press Start 2P", monospace; font-size: 7px; color: #4a3618; background: rgba(255, 255, 255, 0.85); padding: 1px 3px; border-radius: 4px; }
+
+/* ---- 핫바 위 아이템 이름/종류 라벨 ---- */
+.hotbar-label {
+  position: absolute;
+  bottom: 74px; left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex; align-items: center; gap: 7px;
+  padding: 5px 12px; border-radius: 10px;
+  white-space: nowrap;
+  background: rgba(28, 18, 10, 0.82);
+  box-shadow: 0 3px 10px -3px rgba(0, 0, 0, 0.5), inset 0 0 0 1.5px rgba(200, 169, 110, 0.4);
+}
+.hotbar-label .hl-emoji { font-size: 17px; line-height: 1; }
+.hotbar-label .hl-name { font-family: "Noto Sans KR"; font-weight: 700; font-size: 12px; color: #fff4dd; }
+.hotbar-label .hl-type {
+  font-family: "Press Start 2P", monospace; font-size: 7px;
+  color: #2a1c10; background: #e0caa0;
+  padding: 2px 5px; border-radius: 5px;
+}
+.hotbar-label .hl-type.seed { background: #b6e58a; }
+
+/* ---- 토스트 ---- */
+.toast {
+  position: absolute;
+  left: 50%; bottom: 112px;
+  transform: translateX(-50%) scale(.85);
+  z-index: 9;
+  padding: 10px 18px; border-radius: 10px;
+  color: #fff; font-weight: 800; font-size: 13px; white-space: nowrap;
+  box-shadow: 0 6px 16px -4px rgba(0, 0, 0, 0.5);
+  opacity: 0; transition: opacity .18s ease, transform .18s ease;
+}
+.toast[hidden] { display: none; }
+.toast.ok { background: #4a8527; }
+.toast.bad { background: #c0463a; }
+.toast.show { opacity: 1; transform: translateX(-50%) scale(1); }
+
+/* ---- 상점 모달 ---- */
+.shop-overlay {
+  position: absolute; inset: 0; z-index: 20;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(18, 12, 6, 0.62);
+  animation: lumiaFade .15s ease;
+  font-family: "Noto Sans KR", sans-serif;
+}
+.shop-overlay[hidden] { display: none; }
+.shop-card {
+  position: relative;
+  width: 580px; max-width: 92vw; max-height: 480px;
+  display: flex; flex-direction: column;
+  border-radius: 16px; overflow: hidden;
+  background: #efdcb8;
+  box-shadow: 0 22px 60px -16px rgba(0, 0, 0, 0.7), 0 0 0 4px #8a6736, 0 0 0 7px #b9925a, inset 0 0 0 2px rgba(255, 255, 255, 0.35);
+  animation: lumiaRise .22s cubic-bezier(.2, .9, .3, 1.2);
+}
+.shop-header {
+  display: flex; align-items: center; gap: 13px;
+  padding: 15px 16px;
+  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18), inset 0 2px 0 rgba(255, 255, 255, 0.3);
+}
+.shop-header .sh-emoji { width: 46px; height: 46px; border-radius: 11px; background: rgba(255, 255, 255, 0.85); display: flex; align-items: center; justify-content: center; font-size: 26px; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.12), 0 2px 0 rgba(0, 0, 0, 0.15); }
+.shop-header .sh-title { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.shop-header .sh-label { color: #fff; font-weight: 900; font-size: 18px; text-shadow: 0 2px 2px rgba(0, 0, 0, 0.25); }
+.shop-header .sh-sub { color: rgba(255, 255, 255, 0.85); font-size: 12px; font-weight: 600; }
+.shop-header .sh-cur { display: flex; align-items: center; gap: 6px; }
+.shop-header .sh-chip { display: flex; align-items: center; gap: 4px; padding: 6px 10px; border-radius: 7px; background: rgba(28, 18, 10, 0.55); font-family: "Press Start 2P", monospace; font-size: 9px; color: #ffe7ad; }
+.shop-header .sh-chip b { font-weight: 400; }
+.shop-header .sh-close { width: 34px; height: 34px; margin-left: 4px; border: none; border-radius: 9px; background: rgba(28, 18, 10, 0.5); color: #fff; font-size: 18px; cursor: pointer; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25); }
+.shop-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px; min-height: 120px; }
+
+/* 공통 버튼/카드 */
+.shop-body .btn { border: none; border-radius: 9px; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; padding: 8px 12px; }
+.shop-body .btn.buy { align-self: stretch; width: 52px; flex-shrink: 0; background: linear-gradient(180deg, #7bc24a, #5fa233); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 3px 0 #4a8527; }
+.shop-body .ic { width: 46px; height: 46px; flex-shrink: 0; border-radius: 9px; background: #efe0c4; display: flex; align-items: center; justify-content: center; font-size: 25px; box-shadow: inset 0 0 0 1.5px #d8c198; }
+.shop-body .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.shop-body .nm { font-weight: 800; font-size: 14px; color: #4a3618; }
+.shop-body .sub { font-size: 11px; color: #9a7f50; }
+.shop-body .price { font-family: "Press Start 2P", monospace; font-size: 9px; margin-top: 2px; }
+
+/* BUY 그리드 */
+.buy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+.buy-card { display: flex; align-items: center; gap: 11px; padding: 11px; border-radius: 12px; background: #fbf3e2; box-shadow: inset 0 0 0 2px #e0caa0, 0 2px 0 rgba(160, 130, 80, 0.3); }
+
+/* SELL 리스트 */
+.sell-list { display: flex; flex-direction: column; gap: 9px; }
+.sell-row { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 11px; background: #fbf3e2; box-shadow: inset 0 0 0 2px #e0caa0; }
+.sell-row .ic { width: 42px; height: 42px; font-size: 23px; }
+.sell-row .btn.one { background: #f0d49a; color: #6a4a1c; box-shadow: inset 0 0 0 1.5px #d8b772, 0 2px 0 rgba(160, 130, 80, 0.4); }
+.sell-row .btn.sellbtn { background: linear-gradient(180deg, #f0a84a, #d6862f); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 3px 0 #b56e22; }
+.sell-total { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; padding: 13px 15px; border-radius: 12px; background: #5a3d22; box-shadow: inset 0 0 0 2px #7a5430; }
+.sell-total .lbl { color: #f0dcb8; font-weight: 700; font-size: 13px; flex: 1; }
+.sell-total .amt { font-family: "Press Start 2P", monospace; font-size: 12px; color: #ffe7ad; }
+.sell-total .btn.allbtn { background: linear-gradient(180deg, #7bc24a, #5fa233); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 3px 0 #4a8527; padding: 9px 16px; }
+
+/* EXCHANGE */
+.exch { display: flex; flex-direction: column; gap: 16px; padding: 6px 4px; }
+.exch-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+.exch-box { display: flex; flex-direction: column; align-items: center; gap: 7px; width: 128px; padding: 16px 0; border-radius: 13px; }
+.exch-box .ic { width: auto; height: auto; background: none; box-shadow: none; font-size: 30px; }
+.exch-box .v { font-family: "Press Start 2P", monospace; font-size: 13px; }
+.exch-box .nm { font-size: 11px; color: #9a7f50; font-weight: 700; }
+.exch-swap { width: 42px; height: 42px; flex-shrink: 0; border: none; border-radius: 11px; background: #5a3d22; color: #ffe7ad; font-size: 18px; cursor: pointer; box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), 0 3px 0 #3a2614; }
+.exch-ctrl { display: flex; align-items: center; gap: 11px; padding: 0 6px; }
+.exch-ctrl input { flex: 1; accent-color: #3fb3c9; height: 6px; cursor: pointer; }
+.exch-ctrl .btn.maxbtn { background: #f0d49a; color: #6a4a1c; box-shadow: inset 0 0 0 1.5px #d8b772; }
+.exch-rate { text-align: center; font-size: 11px; color: #9a7f50; }
+.exch-go { padding: 14px; border-radius: 11px; background: linear-gradient(180deg, #4fc3d9, #2f9fb5); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 4px 0 #258092; font-size: 15px; }
+
+/* UPGRADE / HIRE */
+.upg-list { display: flex; flex-direction: column; gap: 10px; }
+.upg-row { display: flex; align-items: center; gap: 13px; padding: 12px; border-radius: 12px; background: #fbf3e2; box-shadow: inset 0 0 0 2px #e0caa0; }
+.upg-row .ic { width: 48px; height: 48px; border-radius: 10px; font-size: 26px; }
+.upg-row .top { display: flex; align-items: center; gap: 8px; }
+.upg-row .lv { font-size: 10px; font-weight: 700; color: #8a6ad6; background: #ece2fb; padding: 2px 7px; border-radius: 5px; }
+.upg-row .btn.do { align-self: stretch; padding: 0 16px; flex-shrink: 0; border-radius: 10px; background: linear-gradient(180deg, #9a7ce8, #7b5fd6); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.3), 0 3px 0 #5d44b0; }
+
+/* INVENTORY 그리드 */
+.inv-note { font-size: 11px; color: #9a7f50; font-weight: 700; margin-bottom: 8px; }
+.inv-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 7px; }
+.inv-cell { position: relative; aspect-ratio: 1; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 21px; }
+.inv-cell.filled { background: #fbf3e2; box-shadow: inset 0 0 0 2px #e0caa0; }
+.inv-cell.empty { background: rgba(120, 90, 55, 0.1); box-shadow: inset 0 0 0 2px rgba(140, 110, 70, 0.22); }
+.inv-cell .count { position: absolute; right: 2px; bottom: 1px; font-family: "Press Start 2P", monospace; font-size: 7px; color: #5a3d22; background: rgba(255, 255, 255, 0.85); padding: 1px 3px; border-radius: 4px; }
+
+/* STORAGE */
+.store { display: flex; gap: 14px; align-items: stretch; }
+.store-col { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+.store-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: #4a3618; }
+.store-head .hint { font-size: 10px; font-weight: 600; color: #9a7f50; }
+.store-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; padding: 10px; border-radius: 11px; }
+.store-grid.deposit { background: rgba(122, 139, 58, 0.12); box-shadow: inset 0 0 0 2px rgba(122, 139, 58, 0.3); }
+.store-grid.withdraw { background: rgba(176, 138, 74, 0.14); box-shadow: inset 0 0 0 2px rgba(176, 138, 74, 0.34); }
+.store-mid { display: flex; align-items: center; font-size: 20px; color: #8a6736; }
+.store-cell { position: relative; aspect-ratio: 1; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.store-cell.filled { background: #fbf3e2; box-shadow: inset 0 0 0 2px #e0caa0; cursor: pointer; }
+.store-cell.filled:hover { filter: brightness(1.06); box-shadow: inset 0 0 0 2px #c8a85e; }
+.store-cell.empty { background: rgba(120, 90, 55, 0.1); box-shadow: inset 0 0 0 2px rgba(140, 110, 70, 0.22); }
+.store-cell .count { position: absolute; right: 2px; bottom: 1px; font-family: "Press Start 2P", monospace; font-size: 7px; color: #5a3d22; background: rgba(255, 255, 255, 0.85); padding: 1px 2px; border-radius: 3px; }
+
+/* 스크롤바 */
+.lumia-scroll::-webkit-scrollbar { width: 10px; }
+.lumia-scroll::-webkit-scrollbar-track { background: rgba(90, 61, 34, 0.15); border-radius: 5px; }
+.lumia-scroll::-webkit-scrollbar-thumb { background: #b9925a; border-radius: 5px; border: 2px solid #e9d6b0; }

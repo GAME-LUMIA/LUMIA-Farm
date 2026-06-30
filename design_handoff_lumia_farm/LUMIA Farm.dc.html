@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&amp;family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0e0f17; }
+  @keyframes lumiaFloat { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(-3px); } }
+  @keyframes lumiaKey { 0%,100%{ transform:translateY(0); } 50%{ transform:translateY(2px); } }
+  @keyframes lumiaPop { 0%{ transform:scale(.85); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
+  @keyframes lumiaFade { from{ opacity:0; } to{ opacity:1; } }
+  @keyframes lumiaRise { 0%{ transform:translateY(14px) scale(.96); opacity:0; } 100%{ transform:translateY(0) scale(1); opacity:1; } }
+  .lumia-scroll::-webkit-scrollbar { width:10px; }
+  .lumia-scroll::-webkit-scrollbar-track { background:rgba(90,61,34,.15); border-radius:5px; }
+  .lumia-scroll::-webkit-scrollbar-thumb { background:#b9925a; border-radius:5px; border:2px solid #e9d6b0; }
+</style>
+</helmet>
+<div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:radial-gradient(120% 90% at 50% 0%, #1b2030 0%, #0e0f17 70%); font-family:'Noto Sans KR',sans-serif;">
+  <div style="position:relative; width:800px; height:600px; border-radius:8px; overflow:hidden; box-shadow:0 24px 70px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.05); background:#243018; image-rendering:pixelated;">
+
+    <canvas ref="{{ canvasRef }}" width="800" height="600" style="position: absolute; inset: 0; width: 800px; height: 600px; image-rendering: pixelated; cursor: pointer; left: 6px; top: 6px"></canvas>
+
+    <!-- TOP HUD BAR -->
+    <div style="position:absolute; top:0; left:0; right:0; height:50px; display:flex; align-items:center; justify-content:space-between; padding:0 12px; z-index:6; pointer-events:none; background:linear-gradient(180deg, rgba(46,30,18,.92) 0%, rgba(46,30,18,.55) 70%, rgba(46,30,18,0) 100%);">
+      <div style="display:flex; align-items:center; gap:9px; pointer-events:auto;">
+        <div style="width:34px; height:34px; border-radius:5px; background:linear-gradient(180deg,#ffd98a,#e8a24a); box-shadow:0 0 0 2px #3a2614, inset 0 2px 0 rgba(255,255,255,.5); display:flex; align-items:center; justify-content:center; font-size:18px;">🦊</div>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <span style="color:#fff4dd; font-weight:700; font-size:13px; text-shadow:0 1px 2px rgba(0,0,0,.6);">{{ playerName }}</span>
+          <span style="font-family:'Press Start 2P'; font-size:7px; color:#ffd98a; letter-spacing:.5px;">Lv {{ farmLevel }} · 농장</span>
+        </div>
+      </div>
+      <div style="display:flex; align-items:center; gap:8px; pointer-events:auto;">
+        <div style="display:flex; align-items:center; gap:6px; padding:6px 11px 6px 8px; border-radius:6px; background:rgba(28,18,10,.82); box-shadow:inset 0 0 0 1.5px rgba(200,169,110,.5);">
+          <span style="font-size:14px;">🪙</span>
+          <span style="font-family:'Press Start 2P'; font-size:10px; color:#f0cf8e;">{{ goldText }}</span>
+          <span style="font-family:'Press Start 2P'; font-size:7px; color:#b89760; margin-top:1px;">G</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:6px; padding:6px 11px 6px 8px; border-radius:6px; background:rgba(10,22,30,.82); box-shadow:inset 0 0 0 1.5px rgba(79,195,247,.45);">
+          <span style="font-size:14px;">🌾</span>
+          <span style="font-family:'Press Start 2P'; font-size:10px; color:#9fdcff;">{{ lunaText }}</span>
+          <span style="font-family:'Press Start 2P'; font-size:7px; color:#5c9ec2; margin-top:1px;">LN</span>
+        </div>
+        <button onClick="{{ toggleInv }}" style="width:36px; height:34px; border:none; border-radius:6px; background:rgba(28,18,10,.82); box-shadow:inset 0 0 0 1.5px rgba(200,169,110,.5); color:#f0cf8e; font-size:17px; cursor:pointer; display:flex; align-items:center; justify-content:center;">🎒</button>
+      </div>
+    </div>
+
+    <!-- BOTTOM INTERACTION HINT -->
+    <sc-if value="{{ showHint }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; bottom:74px; left:50%; transform:translateX(-50%); z-index:6; display:flex; align-items:center; gap:10px; padding:9px 16px 9px 10px; border-radius:8px; background:rgba(28,18,10,.9); box-shadow:0 6px 18px -4px rgba(0,0,0,.6), inset 0 0 0 1.5px rgba(200,169,110,.55); animation:lumiaPop .18s ease;">
+        <span style="display:inline-flex; align-items:center; justify-content:center; min-width:26px; height:26px; padding:0 7px; border-radius:5px; background:linear-gradient(180deg,#fff4dd,#d9bd8f); color:#4a3014; font-family:'Press Start 2P'; font-size:11px; box-shadow:0 2px 0 #9a7c4e; animation:lumiaKey 1.1s ease-in-out infinite;">{{ hintKey }}</span>
+        <span style="color:#fff4dd; font-weight:600; font-size:13px;">{{ hintText }}</span>
+      </div>
+    </sc-if>
+
+    <!-- CROP TOOLTIP (when standing on a crop) -->
+    <sc-if value="{{ cropTipShow }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; left:{{ cropTipLeft }}; top:{{ cropTipTop }}; transform:translateX(-50%); z-index:8; pointer-events:none; display:flex; flex-direction:column; align-items:center; animation:lumiaPop .14s ease;">
+        <div style="display:flex; align-items:center; gap:7px; padding:6px 11px; border-radius:9px; background:rgba(28,18,10,.92); box-shadow:0 4px 12px -3px rgba(0,0,0,.6), inset 0 0 0 1.5px rgba(200,169,110,.55); white-space:nowrap;">
+          <span style="font-size:17px;">{{ cropTipEmoji }}</span>
+          <span style="color:#fff4dd; font-weight:800; font-size:13px;">{{ cropTipName }}</span>
+          <sc-if value="{{ cropTipReady }}" hint-placeholder-val="{{ false }}">
+            <span style="display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:5px; background:#5fa233; color:#fff; font-size:10px; font-weight:800;">수확 가능</span>
+          </sc-if>
+          <sc-if value="{{ cropTipGrowing }}" hint-placeholder-val="{{ false }}">
+            <span style="display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:5px; background:rgba(255,255,255,.12); color:#ffd98a; font-family:'Press Start 2P'; font-size:8px;">🕒 {{ cropTipTime }}</span>
+          </sc-if>
+        </div>
+        <div style="width:0; height:0; border-left:6px solid transparent; border-right:6px solid transparent; border-top:7px solid rgba(28,18,10,.92); margin-top:-1px;"></div>
+      </div>
+    </sc-if>
+
+    <!-- HOTBAR (Minecraft-style, always visible) -->
+    <div style="position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:7; display:flex; gap:5px; padding:6px; border-radius:11px; background:rgba(28,18,10,.78); box-shadow:0 5px 16px -4px rgba(0,0,0,.55), inset 0 0 0 1.5px rgba(200,169,110,.4);">
+      <sc-for list="{{ hotbar }}" as="h" hint-placeholder-count="10">
+        <div style="position:relative; width:44px; height:44px; border-radius:8px; background:{{ h.selBg }}; box-shadow:inset 0 0 0 2px {{ h.selRing }}; display:flex; align-items:center; justify-content:center; font-size:23px; transform:scale({{ h.selScale }}); transition:transform .1s ease;">
+          <span style="position:absolute; left:3px; top:1px; font-family:'Press Start 2P'; font-size:7px; color:rgba(120,95,55,.85);">{{ h.num }}</span>
+          {{ h.emoji }}
+          <sc-if value="{{ h.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#4a3618; background:rgba(255,255,255,.85); padding:1px 3px; border-radius:4px;">{{ h.count }}</span></sc-if>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- CONTROLS HINT (corner) -->
+    <div style="position:absolute; bottom:14px; left:14px; z-index:5; display:flex; flex-direction:column; gap:3px; opacity:.5; pointer-events:none;">
+      <span style="font-family:'Press Start 2P'; font-size:6px; color:#fff4dd; letter-spacing:.5px;">WASD / 방향키 이동</span>
+      <span style="font-family:'Press Start 2P'; font-size:6px; color:#fff4dd; letter-spacing:.5px;">E 상호작용</span>
+    </div>
+
+    <!-- ============ SHOP MODAL ============ -->
+    <sc-if value="{{ shopOpen }}" hint-placeholder-val="{{ false }}">
+      <div style="position:absolute; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:rgba(18,12,6,.62); animation:lumiaFade .15s ease; font-family:'Noto Sans KR',sans-serif;">
+        <div style="position:relative; width:580px; max-height:480px; display:flex; flex-direction:column; border-radius:16px; overflow:hidden; background:#efdcb8; box-shadow:0 22px 60px -16px rgba(0,0,0,.7), 0 0 0 4px #8a6736, 0 0 0 7px #b9925a, inset 0 0 0 2px rgba(255,255,255,.35); animation:lumiaRise .22s cubic-bezier(.2,.9,.3,1.2);">
+
+          <!-- HEADER -->
+          <div style="position:relative; display:flex; align-items:center; gap:13px; padding:15px 16px; background:{{ shopColor }}; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18), inset 0 2px 0 rgba(255,255,255,.3);">
+            <div style="width:46px; height:46px; border-radius:11px; background:rgba(255,255,255,.85); display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.12), 0 2px 0 rgba(0,0,0,.15);">{{ shopEmoji }}</div>
+            <div style="display:flex; flex-direction:column; gap:3px; flex:1;">
+              <span style="color:#fff; font-weight:900; font-size:18px; text-shadow:0 2px 2px rgba(0,0,0,.25);">{{ shopLabel }}</span>
+              <span style="color:rgba(255,255,255,.85); font-size:12px; font-weight:600;">{{ shopSub }}</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:6px;">
+              <span style="display:flex; align-items:center; gap:4px; padding:6px 10px; border-radius:7px; background:rgba(28,18,10,.55);"><span style="font-size:13px;">🪙</span><span style="font-family:'Press Start 2P'; font-size:9px; color:#ffe7ad;">{{ goldText }}</span></span>
+              <span style="display:flex; align-items:center; gap:4px; padding:6px 10px; border-radius:7px; background:rgba(28,18,10,.55);"><span style="font-size:13px;">🌾</span><span style="font-family:'Press Start 2P'; font-size:9px; color:#bfe9ff;">{{ lunaText }}</span></span>
+            </div>
+            <button onClick="{{ closeShop }}" style="width:34px; height:34px; margin-left:4px; border:none; border-radius:9px; background:rgba(28,18,10,.5); color:#fff; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:inset 0 -2px 0 rgba(0,0,0,.25);">✕</button>
+          </div>
+
+          <!-- BODY -->
+          <div class="lumia-scroll" style="flex:1; overflow-y:auto; overflow-x:hidden; padding:16px; min-height:120px;">
+
+            <!-- BUY GRID (seed / pet) -->
+            <sc-if value="{{ isBuy }}" hint-placeholder-val="{{ false }}">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:11px;">
+                <sc-for list="{{ buyItems }}" as="it" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:11px; padding:11px; border-radius:12px; background:#fbf3e2; box-shadow:inset 0 0 0 2px #e0caa0, 0 2px 0 rgba(160,130,80,.3);">
+                    <div style="width:46px; height:46px; flex-shrink:0; border-radius:9px; background:#efe0c4; display:flex; align-items:center; justify-content:center; font-size:25px; box-shadow:inset 0 0 0 1.5px #d8c198;">{{ it.emoji }}</div>
+                    <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
+                      <span style="font-weight:800; font-size:14px; color:#4a3618;">{{ it.name }}</span>
+                      <span style="font-size:11px; color:#9a7f50;">{{ it.sub }}</span>
+                      <span style="display:inline-flex; align-items:center; gap:3px; margin-top:2px;"><span style="font-size:12px;">{{ it.curIcon }}</span><span style="font-family:'Press Start 2P'; font-size:9px; color:{{ it.curColor }};">{{ it.price }}</span></span>
+                    </div>
+                    <button onClick="{{ it.onBuy }}" style="align-self:stretch; width:52px; flex-shrink:0; border:none; border-radius:9px; background:linear-gradient(180deg,#7bc24a,#5fa233); color:#fff; font-weight:800; font-size:13px; cursor:pointer; box-shadow:inset 0 2px 0 rgba(255,255,255,.35), 0 3px 0 #4a8527;" style-hover="filter:brightness(1.07);" style-active="transform:translateY(2px);">구매</button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- SELL LIST (crops / pets) -->
+            <sc-if value="{{ isSell }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; flex-direction:column; gap:9px;">
+                <sc-for list="{{ sellItems }}" as="it" hint-placeholder-count="5">
+                  <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:11px; background:#fbf3e2; box-shadow:inset 0 0 0 2px #e0caa0; opacity:{{ it.dimOpacity }};">
+                    <div style="width:42px; height:42px; flex-shrink:0; border-radius:9px; background:#efe0c4; display:flex; align-items:center; justify-content:center; font-size:23px; box-shadow:inset 0 0 0 1.5px #d8c198;">{{ it.emoji }}</div>
+                    <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
+                      <span style="font-weight:800; font-size:14px; color:#4a3618;">{{ it.name }}</span>
+                      <span style="font-size:11px; color:#9a7f50;">보유 {{ it.count }}개 · 개당 🪙 {{ it.price }}</span>
+                    </div>
+                    <button onClick="{{ it.onSell }}" style="border:none; border-radius:8px; padding:8px 12px; background:#f0d49a; color:#6a4a1c; font-weight:800; font-size:12px; cursor:pointer; box-shadow:inset 0 0 0 1.5px #d8b772, 0 2px 0 rgba(160,130,80,.4);">1개</button>
+                    <button onClick="{{ it.onSellAll }}" style="border:none; border-radius:8px; padding:8px 12px; background:linear-gradient(180deg,#f0a84a,#d6862f); color:#fff; font-weight:800; font-size:12px; cursor:pointer; box-shadow:inset 0 2px 0 rgba(255,255,255,.3), 0 3px 0 #b56e22;">판매</button>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-top:14px; padding:13px 15px; border-radius:12px; background:#5a3d22; box-shadow:inset 0 0 0 2px #7a5430;">
+                <span style="color:#f0dcb8; font-weight:700; font-size:13px;">전체 예상 수익</span>
+                <div style="display:flex; align-items:center; gap:12px;">
+                  <span style="display:inline-flex; align-items:center; gap:5px;"><span style="font-size:15px;">🪙</span><span style="font-family:'Press Start 2P'; font-size:12px; color:#ffe7ad;">{{ sellTotal }}</span></span>
+                  <button onClick="{{ onSellAll }}" style="border:none; border-radius:9px; padding:9px 16px; background:linear-gradient(180deg,#7bc24a,#5fa233); color:#fff; font-weight:800; font-size:13px; cursor:pointer; box-shadow:inset 0 2px 0 rgba(255,255,255,.35), 0 3px 0 #4a8527;">전체 판매</button>
+                </div>
+              </div>
+            </sc-if>
+
+            <!-- EXCHANGE -->
+            <sc-if value="{{ isExch }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; flex-direction:column; gap:16px; padding:6px 4px;">
+                <div style="display:flex; align-items:center; justify-content:center; gap:14px;">
+                  <div style="display:flex; flex-direction:column; align-items:center; gap:7px; width:128px; padding:16px 0; border-radius:13px; background:{{ exchFromBg }}; box-shadow:inset 0 0 0 2px {{ exchFromRing }};">
+                    <span style="font-size:30px;">{{ exchFromIcon }}</span>
+                    <span style="font-family:'Press Start 2P'; font-size:13px; color:{{ exchFromColor }};">{{ exchVal }}</span>
+                    <span style="font-size:11px; color:#9a7f50; font-weight:700;">{{ exchFromName }}</span>
+                  </div>
+                  <button onClick="{{ swapExch }}" title="방향 바꾸기" style="width:42px; height:42px; flex-shrink:0; border:none; border-radius:11px; background:#5a3d22; color:#ffe7ad; font-size:18px; cursor:pointer; box-shadow:inset 0 2px 0 rgba(255,255,255,.18), 0 3px 0 #3a2614;" style-hover="filter:brightness(1.12);" style-active="transform:translateY(2px);">⇄</button>
+                  <div style="display:flex; flex-direction:column; align-items:center; gap:7px; width:128px; padding:16px 0; border-radius:13px; background:{{ exchToBg }}; box-shadow:inset 0 0 0 2px {{ exchToRing }};">
+                    <span style="font-size:30px;">{{ exchToIcon }}</span>
+                    <span style="font-family:'Press Start 2P'; font-size:13px; color:{{ exchToColor }};">{{ exchOut }}</span>
+                    <span style="font-size:11px; color:#5c9ec2; font-weight:700;">{{ exchToName }}</span>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; gap:11px; padding:0 6px;">
+                  <input type="range" min="0" max="{{ exchMax }}" step="{{ exchStep }}" value="{{ exchVal }}" onChange="{{ onExchInput }}" style="flex:1; accent-color:#3fb3c9; height:6px; cursor:pointer;">
+                  <button onClick="{{ onExchMax }}" style="border:none; border-radius:8px; padding:8px 12px; background:#f0d49a; color:#6a4a1c; font-weight:800; font-size:12px; cursor:pointer; box-shadow:inset 0 0 0 1.5px #d8b772;">최대</button>
+                </div>
+                <span style="text-align:center; font-size:11px; color:#9a7f50;">환율 · 10 골드 = 1 루나</span>
+                <button onClick="{{ doExchange }}" style="border:none; border-radius:11px; padding:14px; background:linear-gradient(180deg,#4fc3d9,#2f9fb5); color:#fff; font-weight:800; font-size:15px; cursor:pointer; box-shadow:inset 0 2px 0 rgba(255,255,255,.35), 0 4px 0 #258092;">환전하기</button>
+              </div>
+            </sc-if>
+
+            <!-- UPGRADE / HIRE -->
+            <sc-if value="{{ isUpg }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; flex-direction:column; gap:10px;">
+                <sc-for list="{{ upgRows }}" as="u" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:13px; padding:12px; border-radius:12px; background:#fbf3e2; box-shadow:inset 0 0 0 2px #e0caa0;">
+                    <div style="width:48px; height:48px; flex-shrink:0; border-radius:10px; background:#efe0c4; display:flex; align-items:center; justify-content:center; font-size:26px; box-shadow:inset 0 0 0 1.5px #d8c198;">{{ u.emoji }}</div>
+                    <div style="display:flex; flex-direction:column; gap:3px; flex:1; min-width:0;">
+                      <div style="display:flex; align-items:center; gap:8px;"><span style="font-weight:800; font-size:14px; color:#4a3618;">{{ u.name }}</span><span style="font-size:10px; font-weight:700; color:#8a6ad6; background:#ece2fb; padding:2px 7px; border-radius:5px;">{{ u.lvText }}</span></div>
+                      <span style="font-size:11px; color:#9a7f50;">{{ u.desc }}</span>
+                      <span style="display:inline-flex; align-items:center; gap:3px; margin-top:1px;"><span style="font-size:12px;">{{ u.curIcon }}</span><span style="font-family:'Press Start 2P'; font-size:9px; color:{{ u.curColor }};">{{ u.price }}</span></span>
+                    </div>
+                    <button onClick="{{ u.onDo }}" style="align-self:stretch; padding:0 16px; flex-shrink:0; border:none; border-radius:10px; background:linear-gradient(180deg,#9a7ce8,#7b5fd6); color:#fff; font-weight:800; font-size:13px; cursor:pointer; box-shadow:inset 0 2px 0 rgba(255,255,255,.3), 0 3px 0 #5d44b0;">{{ u.btnText }}</button>
+                  </div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- INVENTORY GRID -->
+            <sc-if value="{{ isInv }}" hint-placeholder-val="{{ false }}">
+              <div style="font-size:11px; color:#9a7f50; font-weight:700; margin-bottom:8px;">🎒 들고 다니는 아이템 · 하단 핫바는 1~10번 슬롯</div>
+              <div style="display:grid; grid-template-columns:repeat(10,1fr); gap:7px;">
+                <sc-for list="{{ invSlots }}" as="s" hint-placeholder-count="30">
+                  <div style="position:relative; aspect-ratio:1; border-radius:9px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center; font-size:21px;">{{ s.emoji }}<sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#5a3d22; background:rgba(255,255,255,.85); padding:1px 3px; border-radius:4px;">{{ s.count }}</span></sc-if></div>
+                </sc-for>
+              </div>
+            </sc-if>
+
+            <!-- STORAGE TRANSFER (inventory <-> storage) -->
+            <sc-if value="{{ isStore }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex; gap:14px; align-items:stretch;">
+                <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:#4a3618;"><span style="font-size:15px;">🎒</span>인벤토리<span style="font-size:10px; font-weight:600; color:#9a7f50;">· 클릭 1개 · Shift 전부 →</span></div>
+                  <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:7px; padding:10px; border-radius:11px; background:rgba(122,139,58,.12); box-shadow:inset 0 0 0 2px rgba(122,139,58,.3);">
+                    <sc-for list="{{ depoSlots }}" as="s" hint-placeholder-count="30">
+                      <div onClick="{{ s.onClick }}" style="position:relative; aspect-ratio:1; border-radius:8px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:{{ s.cursor }};" style-hover="{{ s.hoverStyle }}">{{ s.emoji }}<sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#5a3d22; background:rgba(255,255,255,.85); padding:1px 2px; border-radius:3px;">{{ s.count }}</span></sc-if></div>
+                    </sc-for>
+                  </div>
+                </div>
+                <div style="display:flex; align-items:center; font-size:20px; color:#8a6736;">⇄</div>
+                <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                  <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:#4a3618;"><span style="font-size:15px;">📦</span>보관함<span style="font-size:10px; font-weight:600; color:#9a7f50;">· ← 클릭 1개 · Shift 전부</span></div>
+                  <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:7px; padding:10px; border-radius:11px; background:rgba(176,138,74,.14); box-shadow:inset 0 0 0 2px rgba(176,138,74,.34);">
+                    <sc-for list="{{ withSlots }}" as="s" hint-placeholder-count="30">
+                      <div onClick="{{ s.onClick }}" style="position:relative; aspect-ratio:1; border-radius:8px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:{{ s.cursor }};" style-hover="{{ s.hoverStyle }}">{{ s.emoji }}<sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#5a3d22; background:rgba(255,255,255,.85); padding:1px 2px; border-radius:3px;">{{ s.count }}</span></sc-if></div>
+                    </sc-for>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+
+          </div>
+
+          <!-- TOAST -->
+          <sc-if value="{{ toast }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:50%; bottom:16px; transform:translateX(-50%); padding:10px 18px; border-radius:10px; background:{{ toastBg }}; color:#fff; font-weight:800; font-size:13px; box-shadow:0 6px 16px -4px rgba(0,0,0,.5); animation:lumiaPop .18s ease; white-space:nowrap;">{{ toastMsg }}</div>
+          </sc-if>
+
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:848,&quot;height&quot;:648}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.canvasRef = React.createRef();
+    this.keys = {};
+    this.TILE = 40;
+    this.VW = 800; this.VH = 600;
+    this.state = {
+      name:'Kyle', gold:1234, luna:567, farmLevel:3,
+      showHint:false, hintText:'', hintKey:'E', invOpen:false,
+      shopKind:null, exchGold:100, exchDir:'g2l', toast:null,
+      sel:0, cropTip:{show:false},
+      inv: this.makeInv([['carrot',12],['wheat',8],['strawberry',5],['pumpkin',3],['star',1]], 30),
+      sto: this.makeInv([['carrot',40],['pumpkin',6],['wheat',25]], 30),
+    };
+    // ---- shop catalogs ----
+    this.SHOPMETA = {
+      seed:   {emoji:'🌱', label:'씨앗 상점',       color:'#5fae3a', sub:'심을 씨앗을 골라보세요',   layout:'buy'},
+      petbuy: {emoji:'🐣', label:'펫 구매',         color:'#e0863a', sub:'농장을 도와줄 친구',       layout:'buy'},
+      sell:   {emoji:'🧺', label:'작물 판매',       color:'#c98a3a', sub:'수확물을 골드로 바꾸세요', layout:'sell'},
+      petsell:{emoji:'🐾', label:'펫 판매',         color:'#d65f7a', sub:'분양 보낼 펫을 선택',     layout:'sell'},
+      exch:   {emoji:'💱', label:'환전소',          color:'#3fb3c9', sub:'골드 ↔ 루나 환전',        layout:'exch'},
+      inventory:{emoji:'🎒', label:'인벤토리',        color:'#7a8b3a', sub:'들고 다니는 아이템',       layout:'inv'},
+      storage:{emoji:'📦', label:'보관함',          color:'#b08a4a', sub:'인벤토리 ↔ 창고 보관/꺼내기', layout:'store'},
+      upgrade:{emoji:'⬆️', label:'업그레이드 상점', color:'#8a6ad6', sub:'도구와 농장을 강화',      layout:'upg'},
+      hire:   {emoji:'🔨', label:'도구 및 알바 고용', color:'#5a9bd6', sub:'일손과 장비를 빌리세요',  layout:'upg'},
+    };
+    this.CROPINFO = {
+      carrot:{name:'당근', emoji:'🥕', seed:18, sell:32, grow:'4분', secs:240},
+      wheat:{name:'밀', emoji:'🌾', seed:12, sell:22, grow:'3분', secs:180},
+      strawberry:{name:'딸기', emoji:'🍓', seed:34, sell:60, grow:'7분', secs:420},
+      pumpkin:{name:'호박', emoji:'🎃', seed:48, sell:95, grow:'10분', secs:600},
+      star:{name:'별과일', emoji:'⭐', seed:120, sell:240, grow:'20분', secs:1200, luna:true},
+    };
+    this.PETS = [
+      {id:'chick', name:'병아리', emoji:'🐥', price:40, cur:'luna', desc:'수확 +5%'},
+      {id:'bunny', name:'토끼', emoji:'🐰', price:75, cur:'luna', desc:'성장 +8%'},
+      {id:'cat',  name:'고양이', emoji:'🐱', price:130, cur:'luna', desc:'자동 수확'},
+      {id:'fox',  name:'여우', emoji:'🦊', price:260, cur:'luna', desc:'희귀작물 확률 ↑'},
+    ];
+    this.UPGRADES = {
+      upgrade:[
+        {id:'can', name:'물뿌리개', emoji:'💧', lv:2, max:5, cost:150, cur:'gold', desc:'한 번에 더 넓게 물주기'},
+        {id:'hoe', name:'곡괭이', emoji:'⛏️', lv:1, max:5, cost:220, cur:'gold', desc:'경작 속도 증가'},
+        {id:'plot', name:'농장 확장', emoji:'🌍', lv:3, max:8, cost:500, cur:'luna', desc:'심을 수 있는 땅 +1줄'},
+        {id:'sprinkler', name:'자동 스프링클러', emoji:'⛲', lv:0, max:3, cost:800, cur:'luna', desc:'물주기 자동화'},
+      ],
+      hire:[
+        {id:'worker', name:'알바 일꾼', emoji:'🧑‍🌾', lv:0, max:3, cost:60, cur:'gold', desc:'하루 동안 자동 수확'},
+        {id:'tractor', name:'트랙터 대여', emoji:'🚜', lv:0, max:1, cost:120, cur:'gold', desc:'한 번에 전체 경작'},
+        {id:'merchant', name:'행상인 호출', emoji:'🛒', lv:0, max:1, cost:90, cur:'gold', desc:'더 비싼 값에 판매'},
+      ],
+    };
+  }
+
+  componentDidMount(){
+    const cv = this.canvasRef.current;
+    this.ctx = cv.getContext('2d');
+    this.ctx.imageSmoothingEnabled = false;
+    this.cam = {x:0,y:0};
+    this.particles = [];
+    this.t = 0;
+    this.generateWorld();
+    this.bakeWorld();
+    // player starts at center of my plot
+    this.player = { x:(this.myPlot.x+3)*this.TILE, y:(this.myPlot.y+2)*this.TILE, dir:0, anim:0, moving:false };
+    this.cam.x = this.player.x - this.VW/2;
+    this.cam.y = this.player.y - this.VH/2;
+
+    this.onKeyDown = e => {
+      const k = e.key.toLowerCase();
+      if (k==='escape'){ if (this.state.shopKind) this.closeShop(); return; }
+      if (this.state.shopKind){ return; } // freeze world while a shop is open
+      this.keys[k] = true;
+      if (k==='e'){ this.interact(); }
+      if (/^[0-9]$/.test(k)){ this.selectSlot(k==='0'?9:(+k-1)); }
+      if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+    };
+    this.onKeyUp = e => { this.keys[e.key.toLowerCase()] = false; };
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+
+    this.last = performance.now();
+    this.loop = (now) => {
+      const dt = Math.min(40, now - this.last) / 16.67;
+      this.last = now;
+      this.update(dt);
+      this.draw();
+      this.raf = requestAnimationFrame(this.loop);
+    };
+    this.raf = requestAnimationFrame(this.loop);
+  }
+
+  componentWillUnmount(){
+    cancelAnimationFrame(this.raf);
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
+  }
+
+  // ---------- WORLD ----------
+  rnd(x,y,s){ const n = Math.sin(x*127.1 + y*311.7 + (s||0)*74.7)*43758.5453; return n - Math.floor(n); }
+
+  // ---------- INVENTORY MODEL (ordered slots) ----------
+  makeInv(pairs, size){ const a=new Array(size).fill(null); pairs.forEach((p,i)=>{ a[i]={key:p[0], count:p[1]}; }); return a; }
+  countKey(arr, key){ return arr.reduce((s,sl)=> s + (sl&&sl.key===key?sl.count:0), 0); }
+  addItem(arr, key, count){ // mutate copy: stack onto same key, then first empty
+    for (const sl of arr){ if (sl&&sl.key===key){ sl.count+=count; return true; } }
+    for (let i=0;i<arr.length;i++){ if (!arr[i]){ arr[i]={key,count}; return true; } }
+    return false; // full
+  }
+
+  generateWorld(){
+    // every plot is the same base size: 13x12 (interior = 5 + path + 5, 10 tall)
+    const plotW=13, plotH=12, gap=2;
+    const colsX=[]; for (let i=0;i<6;i++) colsX.push(2 + i*(plotW+gap)); // 2,17,32,47,62,77
+    const W = colsX[5]+plotW+1, H = 42;  // 91 wide
+    this.W = W; this.H = H;
+    const g = [];
+    for (let y=0;y<H;y++){ g[y]=[]; for (let x=0;x<W;x++){ g[y][x] = {t:'grass', v:Math.floor(this.rnd(x,y)*3)}; } }
+    // vertical roads between the 6 plot columns
+    const roadsX=[]; for (let i=0;i<5;i++) roadsX.push(colsX[i]+plotW); // 15,30,45,60,75
+    roadsX.forEach(rx=>{ for (let y=0;y<H;y++){ g[y][rx]={t:'road'}; g[y][rx+1]={t:'road'}; } });
+    // big central horizontal road band (market street between top & bottom plots)
+    for (let y=18;y<=23;y++) for (let x=0;x<W;x++) g[y][x]={t:'road'};
+
+    this.grid = g;
+    this.crops = [];
+    this.fences = [];
+
+    // build a fenced plot: outer ring = fence, interior = soil/locked + crops
+    const buildPlot = (px,py,pw,ph, opts) => {
+      const o = opts||{}; const gateSide = o.gate||'none';
+      for (let y=py; y<py+ph; y++) for (let x=px; x<px+pw; x++){
+        if (x<0||y<0||x>=W||y>=H) continue;
+        if (g[y][x].t==='road') continue;
+        const edge = (x===px||x===px+pw-1||y===py||y===py+ph-1);
+        if (edge){
+          // leave a 2-tile gate gap
+          const midx = px+Math.floor(pw/2);
+          const isGate = (gateSide==='bottom' && y===py+ph-1 && (x===midx||x===midx-1)) ||
+                         (gateSide==='top' && y===py && (x===midx||x===midx-1));
+          if (isGate){ g[y][x]={t:'grass',v:1}; continue; }
+          // open gap: farmland-interior coord (6,10) == plot-local (7,11) — no fence here
+          if ((x-px)===7 && (y-py)===11){ g[y][x]={t:'grass',v:1}; continue; }
+          g[y][x]={t:'grass',v:1};
+          const fTop=y===py, fBot=y===py+ph-1, fLeft=x===px, fRight=x===px+pw-1;
+          this.fences.push({gx:x, gy:y, h:(fTop||fBot), v:(fLeft||fRight)});
+        } else {
+          // central walking path (splits plot into 5 + path + 5)
+          if (o.midPath && x === px+Math.floor(pw/2)){ g[y][x]={t:'floor'}; continue; }
+          // interior soil; lock the right-most columns for "expansion"
+          const lockedCols = o.locked||0;
+          const locked = o.allLocked || x >= px+pw-1-lockedCols;
+          g[y][x] = {t: locked?'locked':'soil', v:Math.floor(this.rnd(x,y,7)*2)};
+        }
+      }
+      // plant crops on open soil
+      if (!o.allLocked){
+        const types=['carrot','wheat','strawberry','pumpkin','star'];
+        const density = o.mine? .8 : .55;
+        for (let y=py+1; y<py+ph-1; y++) for (let x=px+1; x<px+pw-1; x++){
+          if (!g[y]||!g[y][x]||g[y][x].t!=='soil') continue;
+          if (this.rnd(x,y,3) < density){
+            const cr=types[Math.floor(this.rnd(x,y,9)*types.length)];
+            const stg=this.rnd(x,y,4); let stage,ready;
+            if (stg<.22){stage=0;ready=false;} else if (stg<.5){stage=1;ready=false;}
+            else if (stg<.78){stage=2;ready=false;} else {stage=2;ready=true;}
+            const tot=this.CROPINFO[cr].secs;
+            this.crops.push({gx:x,gy:y,crop:cr,stage,ready,sway:this.rnd(x,y,5)*6.28, secTotal:tot, growLeft: ready?0:(tot/3)});
+          }
+        }
+      }
+    };
+
+    // plots cluster as 2-on-the-left + 2-on-the-right; the center columns are the market plaza
+    const topY=2, botY=H-2-plotH; // 2 and 28
+    const plotCols=[0,1,4,5];
+    const topOpts={0:{mine:true},1:{locked:2},4:{},5:{locked:1}};
+    const botOpts={0:{},1:{locked:1},4:{locked:2},5:{}};
+    plotCols.forEach(i=>{
+      buildPlot(colsX[i], topY, plotW, plotH, Object.assign({gate:'bottom', midPath:true}, topOpts[i]));
+      buildPlot(colsX[i], botY, plotW, plotH, Object.assign({gate:'top',    midPath:true}, botOpts[i]));
+    });
+    this.myPlot = {x:colsX[0], y:topY, w:plotW, h:plotH};
+
+    // paved central market plaza between the left pair and the right pair
+    for (let y=8;y<=33;y++) for (let x=colsX[2]; x<=colsX[3]+plotW-1; x++){ if (g[y]&&g[y][x]&&g[y][x].t!=='road') g[y][x]={t:'floor'}; }
+
+    // 8 SHOPS along the central market street — 4 above the road, 4 below, spread across the map
+    const shopTopCx=[35,42,49,56], shopBotCx=[35,42,49,56];
+    const mk=(cx,gy,kind,label,emoji,color)=>({gx:cx-2,gy,w:5,h:2,kind,label,emoji,color});
+    this.buildings = [
+      mk(shopTopCx[0],15,'upgrade','업그레이드 상점','⬆️','#8a6ad6'),
+      mk(shopTopCx[1],15,'petbuy', '펫 구매',        '🐣','#e0863a'),
+      mk(shopTopCx[2],15,'petsell','펫 판매',        '🐾','#d65f7a'),
+      mk(shopTopCx[3],15,'storage','보관함',         '📦','#b08a4a'),
+      mk(shopBotCx[0],25,'hire',   '도구 및 알바 고용','🔨','#5a9bd6'),
+      mk(shopBotCx[1],25,'seed',   '씨앗 상점',      '🌱','#5fae3a'),
+      mk(shopBotCx[2],25,'sell',   '작물 판매',      '🧺','#c98a3a'),
+      mk(shopBotCx[3],25,'exch',   '환전소',         '💱','#3fb3c9'),
+    ];
+
+    // decor on grass
+    this.decor = [];
+    for (let i=0;i<180;i++){
+      const x=Math.floor(this.rnd(i,1,2)*W), y=Math.floor(this.rnd(i,2,3)*H);
+      if (!this.grid[y]||!this.grid[y][x]||this.grid[y][x].t!=='grass') continue;
+      const r=this.rnd(i,3,4);
+      let kind=r<.58?'flower':(r<.8?'tuft':(r<.93?'crystal':'bush'));
+      this.decor.push({gx:x,gy:y,kind,v:Math.floor(this.rnd(i,4,5)*4)});
+    }
+
+    this.others = [
+      { name:'Luna', x:(46)*this.TILE, y:(20.5)*this.TILE, color:'#4fc3f7', anim:0 },
+      { name:'Aria', x:(70)*this.TILE, y:(20.5)*this.TILE, color:'#f48fb1', anim:0 },
+      { name:'Pico', x:(20)*this.TILE, y:(21)*this.TILE,   color:'#aed581', anim:0 },
+    ];
+  }
+
+  bakeWorld(){
+    const c = document.createElement('canvas');
+    c.width = this.W*this.TILE; c.height = this.H*this.TILE;
+    const x = c.getContext('2d'); x.imageSmoothingEnabled=false;
+    const T=this.TILE, P=4; // P = pixel art unit (40/4=10 cells per tile)
+    const R=(a,b,s)=>this.rnd(a,b,s);
+    const GRASS=[['#74c043','#67b23a','#83cc52','#5ba233'],['#6cb83e','#5fa835','#7cc24a','#549b2f'],['#79c548','#6bb83f','#8ad055','#5fa835']];
+    const px2=(g,col,a,b,w,h)=>{ x.fillStyle=col; x.fillRect(a,b,w,h); };
+    for (let gy=0;gy<this.H;gy++) for (let gx=0;gx<this.W;gx++){
+      const cell=this.grid[gy][gx], ox=gx*T, oy=gy*T;
+      if (cell.t==='grass'){
+        const pal=GRASS[cell.v||0];
+        x.fillStyle=pal[0]; x.fillRect(ox,oy,T,T);
+        for (let iy=0;iy<T/P;iy++) for (let ix=0;ix<T/P;ix++){
+          const r=R(gx*10+ix, gy*10+iy, 11);
+          let col = r<.30?pal[1] : r<.5?pal[2] : null;
+          if (r>.92) col=pal[3];
+          if (col){ x.fillStyle=col; x.fillRect(ox+ix*P, oy+iy*P, P, P); }
+        }
+        // little blade tufts
+        if (R(gx,gy,12)>.7){ x.fillStyle=pal[2]; const bx=ox+P*(1+Math.floor(R(gx,gy,13)*7)); x.fillRect(bx,oy+T-P*3,2,P*2); x.fillRect(bx+3,oy+T-P*2,2,P); }
+      }
+      else if (cell.t==='road' || cell.t==='floor'){
+        const base = cell.t==='floor' ? '#c9aa7a' : '#b08a5e';
+        const lite = cell.t==='floor' ? '#d8bd8f' : '#c19a6c';
+        const dark = cell.t==='floor' ? '#a98a5e' : '#9a7850';
+        x.fillStyle=base; x.fillRect(ox,oy,T,T);
+        for (let iy=0;iy<T/P;iy++) for (let ix=0;ix<T/P;ix++){
+          const r=R(gx*9+ix, gy*9+iy, 21);
+          if (r<.18){ x.fillStyle=lite; x.fillRect(ox+ix*P,oy+iy*P,P,P); }
+          else if (r>.86){ x.fillStyle=dark; x.fillRect(ox+ix*P,oy+iy*P,P,P); }
+        }
+        // occasional stone
+        if (R(gx,gy,22)>.78){ x.fillStyle='#8f7048'; x.fillRect(ox+P*2+Math.floor(R(gx,gy,23)*P*4),oy+P*2+Math.floor(R(gx,gy,24)*P*4),P+2,P+1); x.fillStyle='rgba(255,255,255,.18)'; x.fillRect(ox+P*2+Math.floor(R(gx,gy,23)*P*4),oy+P*2+Math.floor(R(gx,gy,24)*P*4),P+2,1); }
+        x.fillStyle='rgba(60,40,20,.12)'; x.fillRect(ox,oy,T,2); x.fillRect(ox,oy,2,T);
+      }
+      else if (cell.t==='soil'){
+        const base = cell.v? '#7a4824':'#6f4220';
+        x.fillStyle=base; x.fillRect(ox,oy,T,T);
+        // tilled furrows: horizontal bands
+        for (let row=0; row<T/P; row++){
+          const band = row%2===0;
+          x.fillStyle = band ? '#824e28' : '#5e371b';
+          x.fillRect(ox, oy+row*P, T, P);
+          // grain flecks
+          for (let ix=0;ix<T/P;ix++){ if (R(gx*7+ix, gy*7+row, 31)>.8){ x.fillStyle = band? '#925a30':'#4d2d15'; x.fillRect(ox+ix*P, oy+row*P, P, 2); } }
+        }
+        x.fillStyle='rgba(40,22,8,.28)'; x.fillRect(ox,oy,T,2); x.fillRect(ox,oy,2,T);
+        x.fillStyle='rgba(255,200,140,.06)'; x.fillRect(ox,oy+T-2,T,2);
+      }
+      else if (cell.t==='locked'){
+        x.fillStyle='#2c2418'; x.fillRect(ox,oy,T,T);
+        for (let iy=0;iy<T/P;iy++) for (let ix=0;ix<T/P;ix++){ if(R(gx*5+ix,gy*5+iy,41)>.8){ x.fillStyle='#241d12'; x.fillRect(ox+ix*P,oy+iy*P,P,P); } }
+        x.fillStyle='rgba(0,0,0,.35)'; x.fillRect(ox,oy,T,2); x.fillRect(ox,oy,2,T);
+        x.fillStyle='rgba(120,150,180,.05)'; x.fillRect(ox+T/2-1,oy+T/2-1,3,3);
+      }
+    }
+    // FENCES (baked on top of tiles) — orientation-aware
+    const vpost=(cxp, topY, hgt)=>{
+      x.fillStyle='#5e441f'; x.fillRect(cxp-2, topY, 5, hgt);
+      x.fillStyle='#8a6736'; x.fillRect(cxp-2, topY, 2, hgt);
+      x.fillStyle='#a9824e'; x.fillRect(cxp-2, topY, 5, 2);
+    };
+    for (const f of this.fences){
+      const ox=f.gx*T, oy=f.gy*T;
+      // ground shadow
+      x.fillStyle='rgba(30,20,8,.20)';
+      if (f.h) x.fillRect(ox, oy+T-6, T, 4);
+      if (f.v) x.fillRect(ox+T*0.5-4, oy, 8, T);
+      // horizontal rails (top/bottom runs)
+      if (f.h){
+        x.fillStyle='#7a5a32'; x.fillRect(ox, oy+T*0.40, T, 4); x.fillRect(ox, oy+T*0.64, T, 4);
+        x.fillStyle='#9a7444'; x.fillRect(ox, oy+T*0.40, T, 1); x.fillRect(ox, oy+T*0.64, T, 1);
+      }
+      // vertical rails (left/right runs)
+      if (f.v){
+        x.fillStyle='#7a5a32'; x.fillRect(ox+T*0.34, oy, 4, T); x.fillRect(ox+T*0.58, oy, 4, T);
+        x.fillStyle='#9a7444'; x.fillRect(ox+T*0.34, oy, 1, T); x.fillRect(ox+T*0.58, oy, 1, T);
+      }
+      // posts
+      if (f.h && f.v){
+        // corner — single chunky post tying the two runs together
+        vpost(ox+T*0.46, oy+T*0.18, T*0.62);
+      } else if (f.h){
+        // horizontal run: upright posts at each end
+        vpost(ox+T*0.22, oy+T*0.26, T*0.56);
+        vpost(ox+T*0.74, oy+T*0.26, T*0.56);
+      } else if (f.v){
+        // vertical run: cross-supports linking the two vertical rails
+        x.fillStyle='#6a4d28'; x.fillRect(ox+T*0.34, oy+T*0.20, T*0.28, 3); x.fillRect(ox+T*0.34, oy+T*0.62, T*0.28, 3);
+        x.fillStyle='#8a6736'; x.fillRect(ox+T*0.34, oy+T*0.20, T*0.28, 1);
+      }
+    }
+    this.worldCanvas = c;
+  }
+
+  // ---------- UPDATE ----------
+  update(dt){
+    this.t += dt;
+    const p = this.player, T = this.TILE;
+    // grid-step movement: snap to tiles, move one cell at a time
+    if (p.tx === undefined){ p.tx = p.x; p.ty = p.y; }
+    const arrived = Math.abs(p.x - p.tx) < 0.5 && Math.abs(p.y - p.ty) < 0.5;
+    if (arrived){
+      p.x = p.tx; p.y = p.ty;
+      // pick a new target tile from the currently-held key (one step)
+      let mx=0,my=0;
+      if (this.keys['w']||this.keys['arrowup']) my=-1;
+      else if (this.keys['s']||this.keys['arrowdown']) my=1;
+      else if (this.keys['a']||this.keys['arrowleft']) mx=-1;
+      else if (this.keys['d']||this.keys['arrowright']) mx=1;
+      if (mx) p.dir = mx<0?-1:1;
+      if (mx||my){
+        const ngx = Math.round(p.x/T) + mx, ngy = Math.round(p.y/T) + my;
+        if (ngx>=0 && ngx<this.W && ngy>=0 && ngy<this.H){ p.tx = ngx*T; p.ty = ngy*T; }
+      }
+    }
+    // ease toward the target tile
+    const step = Math.min(1, 0.34*dt);
+    p.x += (p.tx - p.x) * step;
+    p.y += (p.ty - p.y) * step;
+    p.moving = !(Math.abs(p.x - p.tx) < 0.5 && Math.abs(p.y - p.ty) < 0.5);
+    p.anim += p.moving ? dt*.22 : 0;
+    // camera follow (clamped)
+    const tx = p.x - this.VW/2, ty = p.y - this.VH/2;
+    this.cam.x += (tx - this.cam.x)*Math.min(1,.12*dt);
+    this.cam.y += (ty - this.cam.y)*Math.min(1,.12*dt);
+    this.cam.x = Math.max(0, Math.min(this.W*this.TILE - this.VW, this.cam.x));
+    this.cam.y = Math.max(0, Math.min(this.H*this.TILE - this.VH, this.cam.y));
+    // others wander a touch
+    this.others.forEach((o,i)=>{ o.anim+=dt; o.x += Math.sin(this.t*.01+i)*.15; });
+    // crop growth (dt is in 60fps frames → seconds = dt/60)
+    const ds = dt/60;
+    for (const c of this.crops){
+      if (c.ready) continue;
+      if (c.growLeft===undefined){ c.secTotal=(this.CROPINFO[c.crop]||{secs:240}).secs; c.growLeft=c.secTotal/3; }
+      c.growLeft -= ds;
+      if (c.growLeft<=0){ if (c.stage<2){ c.stage++; c.growLeft=c.secTotal/3; } else { c.ready=true; c.growLeft=0; } }
+    }
+    // particles
+    for (let i=this.particles.length-1;i>=0;i--){ const pa=this.particles[i]; pa.x+=pa.vx*dt; pa.y+=pa.vy*dt; pa.life-=dt; if(pa.life<=0) this.particles.splice(i,1); }
+    this.detectHint();
+  }
+
+  detectHint(){
+    const pgx = this.player.x/this.TILE, pgy = this.player.y/this.TILE;
+    let hint=null;
+    // building proximity
+    for (const b of this.buildings){
+      const cx=b.gx+b.w/2, cy=b.gy+b.h/2;
+      if (Math.abs(pgx-cx)<1.6 && Math.abs(pgy-cy)<1.6){ hint={text:b.label+' 열기', key:'E'}; this.nearBuilding=b; break; }
+    }
+    let tip=null;
+    if (!hint){
+      this.nearBuilding=null;
+      // crop / empty plot under player
+      const gx=Math.round(pgx), gy=Math.round(pgy);
+      const cell = this.grid[gy] && this.grid[gy][gx];
+      const crop = this.crops.find(c=>c.gx===gx&&c.gy===gy);
+      if (crop){
+        const info=this.CROPINFO[crop.crop]||{name:'',emoji:'❔'};
+        if (crop.ready){ hint={text:'수확하기', key:'E'}; this.nearCrop=crop; this.nearEmpty=null; tip={emoji:info.emoji, name:info.name, ready:true, time:''}; }
+        else {
+          this.nearCrop=null; this.nearEmpty=null;
+          const per=crop.secTotal/3;
+          const totalLeft = (2-crop.stage)*per + crop.growLeft;
+          tip={emoji:info.emoji, name:info.name, ready:false, time:this.fmtTime(totalLeft)};
+        }
+      } else if (cell && cell.t==='soil'){ hint={text:'씨앗 심기', key:'E'}; this.nearEmpty={gx,gy}; this.nearCrop=null; }
+      else { this.nearCrop=null; this.nearEmpty=null; }
+    }
+    const show = !!hint;
+    if (show!==this.state.showHint || (hint && hint.text!==this.state.hintText)){
+      this.setState({ showHint:show, hintText:hint?hint.text:'', hintKey:hint?hint.key:'E' });
+    }
+    // crop tooltip (positioned above player on screen)
+    const tShow=!!tip;
+    const sx=Math.round(this.player.x-this.cam.x), sy=Math.round(this.player.y-this.cam.y);
+    const ct=this.state.cropTip;
+    const changed = tShow!==(ct&&ct.show) || (tip&&ct&&(tip.name!==ct.name||tip.time!==ct.time||tip.ready!==ct.ready)) || (tip&&ct&&(Math.abs(sx-ct.x)>2||Math.abs(sy-ct.y)>2));
+    if (changed){
+      this.setState({ cropTip: tShow ? {show:true, emoji:tip.emoji, name:tip.name, ready:tip.ready, time:tip.time, x:sx, y:sy} : {show:false} });
+    }
+  }
+
+  fmtTime(sec){
+    sec=Math.max(0, Math.ceil(sec));
+    const m=Math.floor(sec/60), s=sec%60;
+    if (m>0) return m+'분 '+s+'초';
+    return s+'초';
+  }
+
+  interact(){
+    if (this.nearBuilding){ this.openShop(this.nearBuilding.kind); return; }
+    if (!this.nearCrop && !this.nearEmpty){ this.openShop('inventory'); return; }
+    if (this.nearCrop && this.nearCrop.ready){
+      const c=this.nearCrop; c.ready=false; c.stage=0;
+      this.burst(c.gx+.5, c.gy+.5, '#ffe14d', 14);
+      const inv=this.state.inv.map(s=>s?{...s}:null);
+      const ok=this.addItem(inv, c.crop, 1);
+      if (ok){ this.setState({inv}); this.flash('+1 '+this.CROPINFO[c.crop].name); }
+      else { this.flash('인벤토리가 가득 찼어요', false); }
+    } else if (this.nearEmpty){
+      this.crops.push({gx:this.nearEmpty.gx, gy:this.nearEmpty.gy, crop:'carrot', stage:0, ready:false, sway:Math.random()*6.28, secTotal:this.CROPINFO.carrot.secs, growLeft:this.CROPINFO.carrot.secs/3});
+      this.burst(this.nearEmpty.gx+.5, this.nearEmpty.gy+.5, '#8fd14f', 8);
+    }
+  }
+
+  burst(gx,gy,color,n){
+    for (let i=0;i<n;i++){ const a=Math.random()*6.28, s=.5+Math.random()*1.5; this.particles.push({x:gx*this.TILE, y:gy*this.TILE, vx:Math.cos(a)*s, vy:Math.sin(a)*s-1, life:18+Math.random()*16, color, sz:1+Math.random()*2}); }
+  }
+
+  toggleInv = () => this.openShop('inventory');
+
+  // move between inv <-> sto; amount = 1 (click) or 'all' (shift-click)
+  transfer(dir, idx, amount){
+    const inv=this.state.inv.map(s=>s?{...s}:null);
+    const sto=this.state.sto.map(s=>s?{...s}:null);
+    const src = dir==='deposit'?inv:sto, dst = dir==='deposit'?sto:inv;
+    const sl=src[idx]; if(!sl) return;
+    const n = amount==='all' ? sl.count : Math.min(amount||1, sl.count);
+    if (this.addItem(dst, sl.key, n)){
+      sl.count-=n; if(sl.count<=0) src[idx]=null;
+      this.flash(dir==='deposit'?('보관함에 '+n+'개 넣었어요'):('인벤토리로 '+n+'개 꺼냈어요'));
+      this.setState({inv, sto});
+    } else { this.flash(dir==='deposit'?'보관함이 가득 찼어요':'인벤토리가 가득 찼어요', false); }
+  }
+  selectSlot(i){ this.setState({sel:i}); }
+
+  openShop = (kind) => { this.keys={}; this.setState({ shopKind:kind, toast:null }); };
+  closeShop = () => this.setState({ shopKind:null, toast:null });
+
+  flash(msg, ok=true){
+    this.setState({ toast:{msg, ok} });
+    clearTimeout(this._toastT);
+    this._toastT = setTimeout(()=>this.setState({toast:null}), 1600);
+  }
+
+  buy(cost, cur, label){
+    const bal = cur==='luna' ? this.state.luna : this.state.gold;
+    if (bal < cost){ this.flash('잔액이 부족해요', false); return false; }
+    this.setState(s=> cur==='luna' ? {luna:s.luna-cost} : {gold:s.gold-cost});
+    this.flash(label+' 구매 완료!');
+    return true;
+  }
+
+  buySeed(key){ const c=this.CROPINFO[key]; this.buy(c.seed, c.luna?'luna':'gold', c.name+' 씨앗'); }
+  buyPet(p){ this.buy(p.price, p.cur, p.name); }
+  doUpgrade(u){ if(u.lv>=u.max){ this.flash('이미 최대 레벨', false); return; } if(this.buy(u.cost,u.cur,u.name)){ u.lv++; this.forceUpdate(); } }
+
+  removeKey(arr, key, n){ // remove up to n of key from arr (mutates)
+    let left=n; for (let i=0;i<arr.length && left>0;i++){ const sl=arr[i]; if(sl&&sl.key===key){ const t=Math.min(left, sl.count); sl.count-=t; left-=t; if(sl.count<=0) arr[i]=null; } } return n-left;
+  }
+  sellCrop(key, all){
+    const have = this.countKey(this.state.inv, key);
+    if (have<=0){ this.flash('판매할 작물이 없어요', false); return; }
+    const n = all ? have : 1;
+    const inv=this.state.inv.map(s=>s?{...s}:null);
+    this.removeKey(inv, key, n);
+    const gain = this.CROPINFO[key].sell * n;
+    this.setState(s=>({ gold:s.gold+gain, inv }));
+    this.flash('+'+this.fmt(gain)+' G');
+  }
+  sellAll(){
+    let gain=0; const inv=this.state.inv.map(s=>s?{...s}:null);
+    Object.keys(this.CROPINFO).forEach(k=>{ const have=this.countKey(inv,k); if(have>0){ gain+=have*this.CROPINFO[k].sell; this.removeKey(inv,k,have); } });
+    if (gain<=0){ this.flash('판매할 작물이 없어요', false); return; }
+    this.setState(s=>({ gold:s.gold+gain, inv }));
+    this.flash('전체 판매 +'+this.fmt(gain)+' G');
+  }
+
+  exchSrcMax(){ return this.state.exchDir==='g2l' ? this.state.gold : this.state.luna; }
+  setExch(v){ this.setState({ exchGold: Math.max(0, Math.min(this.exchSrcMax(), Math.round(v))) }); }
+  swapExch(){ this.setState(s=>({ exchDir: s.exchDir==='g2l'?'l2g':'g2l', exchGold:0 })); }
+  doExchange(){
+    const amt=this.state.exchGold, dir=this.state.exchDir;
+    if (dir==='g2l'){
+      if (amt<10){ this.flash('최소 10 G 부터', false); return; }
+      const ln=Math.floor(amt/10); // 10 G = 1 LN
+      this.setState(s=>({ gold:s.gold-ln*10, luna:s.luna+ln }));
+      this.flash(this.fmt(ln*10)+' G → +'+this.fmt(ln)+' LN');
+    } else {
+      if (amt<1){ this.flash('최소 1 LN 부터', false); return; }
+      const g=amt*10; // 1 LN = 10 G
+      this.setState(s=>({ luna:s.luna-amt, gold:s.gold+g }));
+      this.flash(this.fmt(amt)+' LN → +'+this.fmt(g)+' G');
+    }
+  }
+
+  // ---------- DRAW ----------
+  draw(){
+    const x=this.ctx, cam=this.cam, T=this.TILE;
+    x.imageSmoothingEnabled=false;
+    x.fillStyle='#243018'; x.fillRect(0,0,this.VW,this.VH);
+    // world (baked)
+    x.drawImage(this.worldCanvas, -Math.round(cam.x), -Math.round(cam.y));
+    // decor + crops + buildings + players sorted by y
+    const ox=-Math.round(cam.x), oy=-Math.round(cam.y);
+    this.drawDecor(x,ox,oy);
+    this.drawBuildings(x,ox,oy);
+    this.drawCrops(x,ox,oy);
+    this.drawPlayers(x,ox,oy);
+    this.drawParticles(x,ox,oy);
+    this.drawVignette(x);
+  }
+
+  drawDecor(x,ox,oy){
+    const T=this.TILE;
+    const FLOWERS=[['#ff5f8d','#ffd1e0'],['#9a6cf0','#dcccff'],['#ffd23f','#fff3b0'],['#5ad0ff','#d6f4ff']];
+    for (const d of this.decor){
+      const cx=d.gx*T+ox+T/2, cy=d.gy*T+oy+T/2;
+      if (d.kind==='flower'){
+        const f=FLOWERS[d.v%4]; const sw=Math.sin(this.t*.04+d.gx)*1;
+        x.fillStyle='#4f9a2e'; x.fillRect(cx-1, cy+2, 2, 7);
+        x.save(); x.translate(cx+sw, cy);
+        x.fillStyle=f[0]; x.fillRect(-4,-1,3,3); x.fillRect(2,-1,3,3); x.fillRect(-1,-4,3,3); x.fillRect(-1,2,3,3);
+        x.fillStyle=f[1]; x.fillRect(-1,-1,3,3);
+        x.restore();
+      } else if (d.kind==='tuft'){
+        x.fillStyle='#4f9a2e'; x.fillRect(cx-3,cy+1,2,5); x.fillRect(cx,cy-1,2,7); x.fillRect(cx+3,cy+1,2,5);
+        x.fillStyle='#6cc23e'; x.fillRect(cx,cy-2,2,2);
+      } else if (d.kind==='bush'){
+        x.fillStyle='rgba(30,40,15,.3)'; x.beginPath(); x.ellipse(cx,cy+9,11,4,0,0,6.28); x.fill();
+        x.fillStyle='#3f7d2a'; x.fillRect(cx-10,cy-4,20,14);
+        x.fillStyle='#4f9a32'; x.fillRect(cx-8,cy-8,16,8); x.fillRect(cx-11,cy-2,6,8); x.fillRect(cx+5,cy-2,6,8);
+        x.fillStyle='#62b840'; x.fillRect(cx-6,cy-9,9,4);
+        if (d.v%2){ x.fillStyle='#ff5f8d'; x.fillRect(cx-5,cy-3,3,3); x.fillRect(cx+3,cy+1,3,3); }
+      } else if (d.kind==='crystal'){
+        // magic crystal cluster (Magic Garden vibe)
+        const gl=0.5+0.5*Math.sin(this.t*.06+d.gx);
+        x.fillStyle=`rgba(90,200,255,${.18+gl*.14})`; x.beginPath(); x.ellipse(cx,cy+8,10,4,0,0,6.28); x.fill();
+        const hue=d.v%2?'#5ad0ff':'#b98cff';
+        const hue2=d.v%2?'#aef0ff':'#e0ccff';
+        x.fillStyle=hue; x.beginPath(); x.moveTo(cx,cy-12); x.lineTo(cx+5,cy+6); x.lineTo(cx-5,cy+6); x.closePath(); x.fill();
+        x.fillStyle=hue2; x.beginPath(); x.moveTo(cx,cy-12); x.lineTo(cx+2,cy+6); x.lineTo(cx-1,cy+6); x.closePath(); x.fill();
+        x.fillStyle=hue; x.beginPath(); x.moveTo(cx-6,cy-4); x.lineTo(cx-3,cy+7); x.lineTo(cx-9,cy+7); x.closePath(); x.fill();
+        x.fillStyle=hue; x.beginPath(); x.moveTo(cx+6,cy-2); x.lineTo(cx+9,cy+7); x.lineTo(cx+3,cy+7); x.closePath(); x.fill();
+        x.fillStyle=`rgba(255,255,255,${.5+gl*.4})`; x.fillRect(cx-1,cy-8,2,3);
+      }
+    }
+  }
+  drawBuildings(x,ox,oy){
+    const T=this.TILE;
+    for (const b of this.buildings){
+      const px=b.gx*T+ox, py=b.gy*T+oy, w=b.w*T, h=b.h*T;
+      const cx=px+w/2;
+      // ground shadow
+      x.fillStyle='rgba(20,12,4,.28)'; x.beginPath(); x.ellipse(cx,py+h-4,w*0.46,7,0,0,6.28); x.fill();
+      // ---- stall (awning + counter) behind the sign ----
+      const sw=w-10, sx=px+5, sy=py-6;
+      // back wall
+      x.fillStyle='#6a4a2a'; x.fillRect(sx, sy+18, sw, h-10);
+      x.fillStyle='#5a3d22'; x.fillRect(sx, sy+18, sw, 4);
+      // counter
+      x.fillStyle='#9a7240'; x.fillRect(sx-2, py+h-16, sw+4, 10);
+      x.fillStyle='#b88c52'; x.fillRect(sx-2, py+h-16, sw+4, 3);
+      // striped awning
+      const stripes=Math.ceil(sw/10);
+      for (let i=0;i<stripes;i++){ x.fillStyle = i%2 ? b.color : this.shade(b.color,38); x.fillRect(sx+i*10, sy+8, 10, 12); }
+      x.fillStyle='rgba(0,0,0,.18)'; x.fillRect(sx, sy+18, sw, 3);
+      // scalloped awning hem
+      for (let i=0;i<stripes;i++){ x.fillStyle = i%2 ? b.color : this.shade(b.color,38); x.beginPath(); x.moveTo(sx+i*10, sy+20); x.lineTo(sx+i*10+10, sy+20); x.lineTo(sx+i*10+5, sy+25); x.closePath(); x.fill(); }
+      // posts
+      x.fillStyle='#4a3014'; x.fillRect(sx, sy+18, 3, h-8); x.fillRect(sx+sw-3, sy+18, 3, h-8);
+      // emoji wares on counter
+      x.font='15px sans-serif'; x.textAlign='center'; x.fillText(b.emoji, cx, py+h-19);
+      // ---- hanging signboard ----
+      const bw=Math.min(sw+6, x.measureText(b.label).width); // placeholder; set font next
+      x.font="700 11px 'Noto Sans KR'";
+      const tw=x.measureText(b.label).width+18, by=py-26, bh=18;
+      x.fillStyle='#3a2614'; x.fillRect(cx-2, by-6, 4, 8); // hanger
+      x.fillStyle='#7a5430'; this.roundRect(x, cx-tw/2, by, tw, bh, 4); x.fill();
+      x.fillStyle='rgba(0,0,0,.0)';
+      x.strokeStyle='#5a3d22'; x.lineWidth=2; this.roundRect(x, cx-tw/2, by, tw, bh, 4); x.stroke();
+      x.fillStyle='#fff4dd'; x.textBaseline='middle'; x.fillText(b.label, cx, by+bh/2+1); x.textBaseline='alphabetic';
+    }
+    x.textAlign='left';
+  }
+  cropPalette(){
+    return {
+      carrot:    {leaf:'#5fbf3f', leaf2:'#74d654', fruit:'#ff8a3d', fruit2:'#ffb066', dark:'#d96a1c'},
+      wheat:     {leaf:'#cdae54', leaf2:'#e7cf6e', fruit:'#f2d877', fruit2:'#fff0a8', dark:'#b8923a'},
+      strawberry:{leaf:'#4fb53a', leaf2:'#69cf52', fruit:'#ef3d54', fruit2:'#ff6e80', dark:'#c01f37'},
+      pumpkin:   {leaf:'#4aa838', leaf2:'#63c24e', fruit:'#ff9326', fruit2:'#ffb35a', dark:'#d86c12'},
+      star:      {leaf:'#7b5fd6', leaf2:'#9a82e8', fruit:'#54e0e8', fruit2:'#aef6fa', dark:'#c46bf0'},
+    };
+  }
+
+  drawCrops(x,ox,oy){
+    const T=this.TILE, pal=this.cropPalette();
+    // sort by y so taller plants overlap correctly
+    const list=[...this.crops].sort((a,b)=>a.gy-b.gy);
+    for (const c of list){
+      const cx=c.gx*T+ox+T/2;
+      const cy=c.gy*T+oy+T/2;
+      const p=pal[c.crop]||pal.carrot;
+      const bob = c.ready ? Math.sin(this.t*.08 + c.sway)*2 : 0;
+      const sway = Math.sin(this.t*.035 + c.sway)*(c.stage>0?1.4:0.6);
+      // mound shadow
+      x.fillStyle='rgba(40,22,8,.30)'; x.beginPath(); x.ellipse(cx,cy+11,9,3.4,0,0,6.28); x.fill();
+      // ready glow + ring
+      if (c.ready){
+        const gl=0.5+0.5*Math.sin(this.t*.08+c.sway);
+        const rg=x.createRadialGradient(cx,cy+bob-2,1,cx,cy+bob-2,18);
+        rg.addColorStop(0,`rgba(255,232,120,${.34+gl*.18})`); rg.addColorStop(1,'rgba(255,232,120,0)');
+        x.fillStyle=rg; x.fillRect(cx-18,cy+bob-20,36,36);
+      }
+      x.save(); x.translate(cx, cy+bob); x.translate(sway,0);
+      this.drawPlant(x, c.crop, c.stage, c.ready, p);
+      x.restore();
+      // harvest sparkles
+      if (c.ready && this.rnd(c.gx,c.gy, Math.floor(this.t*.1))>.6){
+        const sx=cx+(this.rnd(c.gx,c.gy,7)-.5)*22, sy=cy+bob-12-this.rnd(c.gy,c.gx,8)*10;
+        this.drawSparkle(x,sx,sy, 2+this.rnd(c.gx,c.gy,9)*2);
+      }
+    }
+  }
+
+  // draws a plant centred at (0,0), baseline ~ y=10
+  drawPlant(x, crop, stage, ready, p){
+    const R=(a,b)=>this.rnd(a,b,2);
+    const block=(bx,by,w,h,col)=>{ x.fillStyle=col; x.fillRect(Math.round(bx),Math.round(by),w,h); };
+    if (stage===0){ // sprout (all crops similar)
+      block(-1,4,2,5,'#5e371b');
+      block(-1,2,2,3,p.leaf);
+      block(-4,2,3,2,p.leaf2); block(2,1,3,2,p.leaf2);
+      block(-1,-1,2,3,p.leaf2);
+      return;
+    }
+    if (crop==='carrot'){
+      // leafy bushy top + carrot tip
+      block(-2,2,4,7,p.dark);
+      block(-1,4,2,5,p.fruit);
+      for (let i=-3;i<=3;i+=2){ block(i, -6-(3-Math.abs(i)), 2, 9, i%2?p.leaf:p.leaf2); }
+      block(-4,-3,8,4,p.leaf); block(-3,-6,6,3,p.leaf2);
+      if (stage>=2){ block(-2,7,4,4,p.fruit2); block(-1,9,2,2,p.dark); }
+    } else if (crop==='wheat'){
+      block(-3,-2,2,12,p.leaf); block(1,-2,2,12,p.leaf);
+      block(-1,-8,2,18,p.leaf2);
+      if (stage>=2){ for (let i=-3;i<=3;i+=3){ block(i,-9,2,3,p.fruit); block(i,-6,2,3,p.fruit2); block(i,-3,2,3,p.fruit);} block(-1,-11,2,3,p.dark); }
+    } else if (crop==='strawberry'){
+      block(-5,0,10,8,p.leaf); block(-6,2,12,5,p.leaf2);
+      block(-4,-2,3,3,p.leaf); block(2,-2,3,3,p.leaf);
+      if (stage>=2){
+        const berries=[[-4,4],[2,5],[-1,7],[4,2]];
+        berries.forEach((b,i)=>{ block(b[0],b[1],4,4,p.fruit); block(b[0],b[1],4,1,p.fruit2); block(b[0]+1,b[1]+1,1,1,'#fff'); });
+      }
+    } else if (crop==='pumpkin'){
+      block(-3,-4,2,6,p.leaf); block(-6,-5,5,3,p.leaf2); block(2,-4,5,3,p.leaf2);
+      if (stage>=2){
+        block(-7,2,14,9,p.fruit); block(-8,4,16,5,p.fruit2); block(-7,2,14,2,p.fruit2);
+        block(-5,2,2,9,p.dark); block(0,2,2,9,p.dark); block(5,2,2,9,p.dark);
+        block(-1,-3,2,5,'#6b4a1f');
+      } else { block(-4,3,8,6,p.fruit); }
+    } else if (crop==='star'){
+      block(-1,0,2,9,p.leaf); block(-4,-1,3,2,p.leaf2); block(2,-2,3,2,p.leaf2);
+      block(-3,3,6,5,p.leaf);
+      if (stage>=2){
+        // glowing star fruit
+        const s=ready?1:.85;
+        x.save(); x.translate(0,-3); x.scale(s,s);
+        x.fillStyle=p.fruit; x.beginPath();
+        for (let i=0;i<5;i++){ const a=-Math.PI/2+i*2*Math.PI/5; x.lineTo(Math.cos(a)*6,Math.sin(a)*6); const a2=a+Math.PI/5; x.lineTo(Math.cos(a2)*2.6,Math.sin(a2)*2.6); }
+        x.closePath(); x.fill();
+        x.fillStyle=p.fruit2; x.fillRect(-1,-2,2,2);
+        x.restore();
+      }
+    }
+  }
+
+  drawSparkle(x,sx,sy,r){
+    x.save(); x.translate(sx,sy);
+    x.fillStyle='rgba(255,248,200,.95)';
+    x.fillRect(-1,-r,2,r*2); x.fillRect(-r,-1,r*2,2);
+    x.fillStyle='rgba(255,255,255,.9)'; x.fillRect(-1,-1,2,2);
+    x.restore();
+  }
+  drawPlayers(x,ox,oy){
+    const ents=[
+      ...this.others.map(o=>({x:o.x,y:o.y,color:o.color,name:o.name,me:false,anim:o.anim,moving:true,dir:1})),
+      {x:this.player.x,y:this.player.y,color:'#ffcf6e',name:this.state.name,me:true,anim:this.player.anim,moving:this.player.moving,dir:this.player.dir},
+    ].sort((a,b)=>a.y-b.y);
+    for (const e of ents){ this.drawChar(x, e.x+ox, e.y+oy, e.color, e.name, e.me, e.anim, e.moving, e.dir); }
+  }
+
+  drawChar(x,px,py,color,name,me,anim,moving,dir){
+    const hop = moving ? Math.abs(Math.sin(anim*Math.PI))*3 : Math.sin(this.t*.05)*1;
+    const bx=Math.round(px), by=Math.round(py-hop);
+    const d=dir||1;
+    const dk=this.shade(color,-28), lt=this.shade(color,30);
+    // shadow
+    x.globalAlpha = me?.28:.2; x.fillStyle='#1a1206'; x.beginPath(); x.ellipse(bx,py+12,11,4,0,0,6.28); x.fill(); x.globalAlpha=1;
+    // feet
+    x.fillStyle=dk; const ft=moving?Math.sin(anim*Math.PI*2)*2:0;
+    x.fillRect(bx-6,by+9+ft,4,3); x.fillRect(bx+2,by+9-ft,4,3);
+    // body (rounded blob)
+    x.fillStyle=color;
+    x.fillRect(bx-8,by-4,16,13); x.fillRect(bx-9,by-1,18,8); x.fillRect(bx-6,by-7,12,4);
+    // belly highlight
+    x.fillStyle=lt; x.fillRect(bx-5,by-5,10,4); x.fillRect(bx-6,by-2,5,6);
+    // ears/tuft
+    x.fillStyle=color; x.fillRect(bx-7,by-10,4,4); x.fillRect(bx+3,by-10,4,4);
+    x.fillStyle=this.shade(color,-15); x.fillRect(bx-6,by-9,2,2); x.fillRect(bx+4,by-9,2,2);
+    // eyes
+    x.fillStyle='#2a1c10'; x.fillRect(bx-4+ (d>0?1:-1),by-3,2,3); x.fillRect(bx+2+(d>0?1:-1),by-3,2,3);
+    x.fillStyle='#fff'; x.fillRect(bx-4+(d>0?1:-1),by-3,1,1); x.fillRect(bx+2+(d>0?1:-1),by-3,1,1);
+    // cheeks
+    x.fillStyle='rgba(255,140,150,.5)'; x.fillRect(bx-6,by,2,2); x.fillRect(bx+4,by,2,2);
+    // nametag
+    x.font="700 10px 'Noto Sans KR'"; x.textAlign='center';
+    const tw=x.measureText(name).width+12;
+    x.fillStyle=me?'rgba(60,40,18,.92)':'rgba(30,30,40,.8)';
+    this.roundRect(x, bx-tw/2, by-26, tw, 14, 3); x.fill();
+    if (me){ x.strokeStyle='rgba(255,210,120,.6)'; x.lineWidth=1; this.roundRect(x, bx-tw/2, by-26, tw, 14, 3); x.stroke(); }
+    x.fillStyle=me?'#ffe6b3':'#e8e8f0'; x.fillText(name, bx, by-16);
+    x.textAlign='left';
+  }
+
+  shade(hex,amt){
+    const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+    r=Math.max(0,Math.min(255,r+amt)); g=Math.max(0,Math.min(255,g+amt)); b=Math.max(0,Math.min(255,b+amt));
+    return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1);
+  }
+  roundRect(x,a,b,w,h,r){ x.beginPath(); x.moveTo(a+r,b); x.arcTo(a+w,b,a+w,b+h,r); x.arcTo(a+w,b+h,a,b+h,r); x.arcTo(a,b+h,a,b,r); x.arcTo(a,b,a+w,b,r); x.closePath(); }
+  drawParticles(x,ox,oy){
+    for (const p of this.particles){ x.globalAlpha=Math.max(0,Math.min(1,p.life/20)); x.fillStyle=p.color; x.fillRect(Math.round(p.x+ox-p.sz/2), Math.round(p.y+oy-p.sz/2), p.sz, p.sz); }
+    x.globalAlpha=1;
+  }
+  drawVignette(x){
+    const g=x.createRadialGradient(this.VW/2,this.VH/2,this.VH*.35,this.VW/2,this.VH/2,this.VH*.8);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(8,6,2,.42)');
+    x.fillStyle=g; x.fillRect(0,0,this.VW,this.VH);
+  }
+
+  fmt(n){ return n.toLocaleString('en-US'); }
+
+  renderVals(){
+    const kind = this.state.shopKind;
+    const meta = kind ? this.SHOPMETA[kind] : null;
+    const cur = (c)=> c==='luna' ? {icon:'🌾', name:'LN', color:'#9fdcff'} : {icon:'🪙', name:'G', color:'#f0cf8e'};
+
+    // buy items (seed / petbuy)
+    let buyItems=[];
+    if (kind==='seed'){
+      buyItems = Object.keys(this.CROPINFO).map(k=>{ const c=this.CROPINFO[k]; const cu=cur(c.luna?'luna':'gold');
+        return {emoji:c.emoji, name:c.name+' 씨앗', sub:'성장 '+c.grow, price:this.fmt(c.seed), curIcon:cu.icon, curColor:cu.color, onBuy:()=>this.buySeed(k)}; });
+    } else if (kind==='petbuy'){
+      buyItems = this.PETS.map(p=>{ const cu=cur(p.cur); return {emoji:p.emoji, name:p.name, sub:p.desc, price:this.fmt(p.price), curIcon:cu.icon, curColor:cu.color, onBuy:()=>this.buyPet(p)}; });
+    }
+
+    // sell list (sell crops / petsell)
+    let sellItems=[], sellTotal=0, isPetSell = kind==='petsell';
+    if (kind==='sell'){
+      sellItems = Object.keys(this.CROPINFO).map(k=>{ const c=this.CROPINFO[k]; const n=this.countKey(this.state.inv,k); sellTotal += n*c.sell;
+        return {emoji:c.emoji, name:c.name, count:n, price:this.fmt(c.sell), dimOpacity:n<=0?0.45:1, onSell:()=>this.sellCrop(k,false), onSellAll:()=>this.sellCrop(k,true)}; });
+    } else if (kind==='petsell'){
+      sellItems = this.PETS.slice(0,2).map(p=>({emoji:p.emoji, name:p.name, count:1, price:this.fmt(Math.floor(p.price*0.6)), dimOpacity:1, onSell:()=>this.flash(p.name+' 판매 완료!'), onSellAll:()=>this.flash(p.name+' 판매 완료!')}));
+    }
+
+    // upgrade / hire rows
+    let upgRows=[];
+    if (kind==='upgrade'||kind==='hire'){
+      upgRows = this.UPGRADES[kind].map(u=>{ const cu=cur(u.cur); const maxed=u.lv>=u.max;
+        return {emoji:u.emoji, name:u.name, desc:u.desc, lvText: kind==='hire' ? (maxed?'고용중':'대여 가능') : ('Lv '+u.lv+' / '+u.max),
+          price:this.fmt(u.cost), curIcon:cu.icon, curColor:cu.color, maxed, btnText: kind==='hire'?'고용':'강화', onDo:()=>this.doUpgrade(u)}; });
+    }
+
+    // slot renderer
+    const slotView = (arr, onClick) => arr.map((sl,i)=>{
+      if (sl){ const c=this.CROPINFO[sl.key]||{emoji:'❔',name:''}; return {emoji:c.emoji, count:this.fmt(sl.count), hasCount:true, empty:false, bg:'#fbf3e2', ring:'#e0caa0', cursor:'pointer', hoverStyle:'filter:brightness(1.06); box-shadow:inset 0 0 0 2px #c8a85e;', onClick:(e)=>onClick(i, e)}; }
+      return {emoji:'', count:'', hasCount:false, empty:true, bg:'rgba(120,90,55,.10)', ring:'rgba(140,110,70,.22)', cursor:'default', hoverStyle:'', onClick:()=>{}};
+    });
+    // full inventory grid (inventory modal)
+    let invSlots=[];
+    if (kind==='inventory') invSlots = slotView(this.state.inv, ()=>{});
+    // storage transfer: inv (deposit) + sto (withdraw)
+    let depoSlots=[], withSlots=[];
+    if (kind==='storage'){
+      depoSlots = slotView(this.state.inv, (i,e)=>this.transfer('deposit', i, e&&e.shiftKey?'all':1));
+      withSlots = slotView(this.state.sto, (i,e)=>this.transfer('withdraw', i, e&&e.shiftKey?'all':1));
+    }
+
+    const exVal = this.state.exchGold;
+    return {
+      canvasRef: this.canvasRef,
+      playerName: this.state.name,
+      farmLevel: this.state.farmLevel,
+      goldText: this.fmt(this.state.gold),
+      lunaText: this.fmt(this.state.luna),
+      showHint: this.state.showHint && !this.state.shopKind,
+      hintText: this.state.hintText,
+      hintKey: this.state.hintKey,
+      toggleInv: this.toggleInv,
+      // shop
+      shopOpen: !!kind,
+      shopEmoji: meta?meta.emoji:'', shopLabel: meta?meta.label:'', shopSub: meta?meta.sub:'', shopColor: meta?meta.color:'#7a5430',
+      isBuy: meta?meta.layout==='buy':false,
+      isSell: meta?meta.layout==='sell':false,
+      isExch: meta?meta.layout==='exch':false,
+      isUpg: meta?meta.layout==='upg':false,
+      isInv: meta?meta.layout==='inv':false,
+      isStore: meta?meta.layout==='store':false,
+      buyItems, sellItems, sellTotal:this.fmt(sellTotal), isPetSell, upgRows,
+      invSlots, depoSlots, withSlots,
+      // hotbar (always visible)
+      hotbar: this.state.inv.slice(0,10).map((sl,i)=>{ const c=sl?(this.CROPINFO[sl.key]||{emoji:'❔'}):null;
+        return {emoji:c?c.emoji:'', count:sl?this.fmt(sl.count):'', hasCount:!!sl, num: i===9?'0':String(i+1),
+          selBg: i===this.state.sel?'#fff4dd':'rgba(20,12,6,.5)', selRing: i===this.state.sel?'#ffd98a':'rgba(255,244,221,.25)', selScale: i===this.state.sel?'1.12':'1'}; }),
+      closeShop: this.closeShop,
+      onSellAll: ()=>this.sellAll(),
+      exchVal: exVal,
+      exchOut: this.state.exchDir==='g2l' ? Math.floor(exVal/10) : exVal*10,
+      exchMax: this.exchSrcMax(),
+      exchStep: this.state.exchDir==='g2l' ? 10 : 1,
+      exchFromIcon: this.state.exchDir==='g2l' ? '🪙' : '🌾',
+      exchFromName: this.state.exchDir==='g2l' ? '골드' : '루나',
+      exchFromColor: this.state.exchDir==='g2l' ? '#c08a2a' : '#3f9fc2',
+      exchToIcon: this.state.exchDir==='g2l' ? '🌾' : '🪙',
+      exchToName: this.state.exchDir==='g2l' ? '루나' : '골드',
+      exchToColor: this.state.exchDir==='g2l' ? '#3f9fc2' : '#c08a2a',
+      exchFromBg: this.state.exchDir==='g2l' ? '#fbf3e2' : '#e4f3fa',
+      exchFromRing: this.state.exchDir==='g2l' ? '#e0caa0' : '#a8d6e8',
+      exchToBg: this.state.exchDir==='g2l' ? '#e4f3fa' : '#fbf3e2',
+      exchToRing: this.state.exchDir==='g2l' ? '#a8d6e8' : '#e0caa0',
+      onExchInput: (e)=>this.setExch(+e.target.value),
+      onExchMax: ()=>this.setExch(this.exchSrcMax()),
+      swapExch: ()=>this.swapExch(),
+      doExchange: ()=>this.doExchange(),
+      // crop tooltip
+      cropTipShow: this.state.cropTip.show && !this.state.shopKind,
+      cropTipEmoji: this.state.cropTip.emoji||'',
+      cropTipName: this.state.cropTip.name||'',
+      cropTipReady: !!this.state.cropTip.ready,
+      cropTipGrowing: this.state.cropTip.show && !this.state.cropTip.ready,
+      cropTipTime: this.state.cropTip.time||'',
+      cropTipLeft: (this.state.cropTip.x||0)+'px',
+      cropTipTop: ((this.state.cropTip.y||0)-52)+'px',
+      toast: this.state.toast,
+      toastMsg: this.state.toast?this.state.toast.msg:'',
+      toastBg: (this.state.toast && !this.state.toast.ok) ? '#c0463a' : '#4a8527',
+    };
+  }
+}
+</script>
+</body>
+</html>

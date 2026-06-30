@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Do+Hyeon&family=Press+Start+2P&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+</style>
+</helmet>
+
+<!-- ============ FRAME 1 — WORLD MAP ============ -->
+<div style="position:absolute; left:40px; top:40px; width:1440px; font-family:'Jua',sans-serif;">
+  <div data-drags-parent="1" style="display:flex; align-items:center; gap:10px; margin-bottom:14px; cursor:grab;">
+    <span style="font-family:'Press Start 2P'; font-size:11px; color:#4a6b1e; background:#dff0bf; padding:7px 9px; border-radius:5px; box-shadow:inset 0 0 0 1.5px #a7c266;">MAP</span>
+    <span style="font-size:22px; color:#3f4d22;">화면 1 — 월드 맵</span>
+    <span style="font-size:14px; color:#8a9a5e; margin-top:4px;">탑다운 타일맵 · 중앙 흙길 · 농장 구획 8개 · 시설 8개</span>
+  </div>
+  <div style="background:#fff; border-radius:4px; box-shadow:0 1px 3px rgba(0,0,0,.08); padding:26px;">
+    <div style="position:relative; width:100%; height:560px; border-radius:14px; overflow:hidden; background:{{ grassBg }}; box-shadow:inset 0 0 0 3px #aebf73, inset 0 0 60px rgba(80,110,30,.15);">
+
+      <!-- TOP PLOT ROW -->
+      <div style="position:absolute; top:18px; left:18px; right:18px; height:182px; display:flex; gap:18px;">
+        <sc-for list="{{ plotsTop }}" as="plot" hint-placeholder-count="4">
+          <div style="flex:1; background:#a9824e; border-radius:8px; padding:7px; box-shadow:inset 0 0 0 4px #8a6736, inset 0 0 0 6px #b9925a, 0 3px 0 rgba(90,61,34,.5);">
+            <div style="width:100%; height:100%; display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(4,1fr); gap:4px; background:#7c5f38; border-radius:4px; padding:4px;">
+              <sc-for list="{{ plot.cells }}" as="cell" hint-placeholder-count="16">
+                <div style="border-radius:3px; background:{{ cell.bg }}; box-shadow:inset 0 0 0 1px rgba(122,139,58,.35); display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1;">{{ cell.crop }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+      <!-- CENTRAL ROAD BAND -->
+      <div style="position:absolute; left:0; right:0; top:212px; height:136px; background:{{ soilBg }}; box-shadow:inset 0 6px 10px rgba(60,40,18,.18), inset 0 -6px 10px rgba(60,40,18,.18);">
+        <div style="position:absolute; left:0; right:0; top:0; height:5px; background:#8a6736;"></div>
+        <div style="position:absolute; left:0; right:0; bottom:0; height:5px; background:#8a6736;"></div>
+        <div style="position:absolute; left:14px; right:14px; top:50%; transform:translateY(-50%); border-top:4px dashed rgba(255,244,221,.5);"></div>
+
+        <!-- 8 BUILDING CARDS along the road -->
+        <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:space-between; gap:8px; padding:0 16px;">
+          <sc-for list="{{ buildings }}" as="b" hint-placeholder-count="8">
+            <div style="flex:1; min-width:0; height:104px; background:#D9D9D9; border-radius:10px; box-shadow:0 3px 0 #a9a9a9, inset 0 2px 0 rgba(255,255,255,.7); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px; padding:6px 4px;">
+              <div style="width:38px; height:38px; border-radius:8px; background:{{ b.chip }}; display:flex; align-items:center; justify-content:center; font-size:20px; box-shadow:inset 0 -2px 0 rgba(0,0,0,.12), inset 0 2px 0 rgba(255,255,255,.4);">{{ b.emoji }}</div>
+              <span style="font-size:13px; color:#3f4322; text-align:center; line-height:1.15; word-break:keep-all;">{{ b.label }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+
+      <!-- BOTTOM PLOT ROW -->
+      <div style="position:absolute; bottom:18px; left:18px; right:18px; height:182px; display:flex; gap:18px;">
+        <sc-for list="{{ plotsBottom }}" as="plot" hint-placeholder-count="4">
+          <div style="flex:1; background:#a9824e; border-radius:8px; padding:7px; box-shadow:inset 0 0 0 4px #8a6736, inset 0 0 0 6px #b9925a, 0 3px 0 rgba(90,61,34,.5);">
+            <div style="width:100%; height:100%; display:grid; grid-template-columns:repeat(4,1fr); grid-template-rows:repeat(4,1fr); gap:4px; background:#7c5f38; border-radius:4px; padding:4px;">
+              <sc-for list="{{ plot.cells }}" as="cell" hint-placeholder-count="16">
+                <div style="border-radius:3px; background:{{ cell.bg }}; box-shadow:inset 0 0 0 1px rgba(122,139,58,.35); display:flex; align-items:center; justify-content:center; font-size:14px; line-height:1;">{{ cell.crop }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ============ FRAME 2 — FARM PLOT LEVELS 1–20 ============ -->
+<div style="position:absolute; left:40px; top:790px; width:1440px; font-family:'Jua',sans-serif;">
+  <div data-drags-parent="1" style="display:flex; align-items:center; gap:10px; margin-bottom:14px; cursor:grab;">
+    <span style="font-family:'Press Start 2P'; font-size:11px; color:#7a5026; background:#f0dcc0; padding:7px 9px; border-radius:5px; box-shadow:inset 0 0 0 1.5px #c9a266;">LV</span>
+    <span style="font-size:22px; color:#3f4d22;">화면 2 — 플레이어 농장지 레벨 견본</span>
+    <span style="font-size:14px; color:#8a9a5e; margin-top:4px;">1단계 → 20단계 · 5×5 셀 · 심을 수 있는 땅이 점점 늘어남</span>
+  </div>
+  <div style="background:#fff; border-radius:4px; box-shadow:0 1px 3px rgba(0,0,0,.08); padding:30px;">
+
+    <!-- 20 STAGE TILES, 4 columns x 5 rows -->
+    <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:24px;">
+      <sc-for list="{{ stages }}" as="st" hint-placeholder-count="20">
+        <div style="background:#f3f6e9; border-radius:12px; padding:14px; box-shadow:inset 0 0 0 1.5px #d7e1bd;">
+          <div style="display:flex; align-items:center; gap:8px; margin-bottom:11px;">
+            <span style="font-family:'Press Start 2P'; font-size:11px; color:#fff; background:#7a8b3a; padding:6px 7px; border-radius:5px; box-shadow:0 2px 0 #5d6b29;">{{ st.num }}</span>
+            <span style="font-size:17px; color:#3f4d22;">단계 땅</span>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(5,1fr); grid-template-rows:repeat(5,1fr); gap:4px; aspect-ratio:1; background:#c6cfa6; border-radius:7px; padding:5px; box-shadow:inset 0 0 0 1.5px #aebf73;">
+            <sc-for list="{{ st.cells }}" as="cell" hint-placeholder-count="25">
+              <div style="border-radius:3px; background:{{ cell.bg }}; box-shadow:inset 0 0 0 1px rgba(60,50,30,.12);"></div>
+            </sc-for>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- LEGEND -->
+    <div style="margin-top:28px; padding:18px 22px; background:#f7f5ee; border-radius:12px; box-shadow:inset 0 0 0 1.5px #e3ddcb; display:flex; align-items:center; gap:34px; flex-wrap:wrap;">
+      <span style="font-size:17px; color:#5a4a2e;">범례</span>
+      <sc-for list="{{ legend }}" as="lg" hint-placeholder-count="3">
+        <div style="display:flex; align-items:center; gap:11px;">
+          <span style="width:30px; height:30px; border-radius:6px; background:{{ lg.color }}; box-shadow:inset 0 0 0 1.5px rgba(60,50,30,.18);"></span>
+          <span style="font-size:16px; color:#4a4632;">{{ lg.text }}</span>
+        </div>
+      </sc-for>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;grassColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#C6E196&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;soilColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#AA885C&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;lockedColor&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#44341E&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  rnd(a,b){ const n=Math.sin(a*127.1+b*311.7)*43758.5453; return n-Math.floor(n); }
+
+  renderVals(){
+    const GRASS = this.props.grassColor ?? '#C6E196';
+    const SOIL  = this.props.soilColor  ?? '#AA885C';
+    const DARK  = this.props.lockedColor ?? '#44341E';
+    const PATH  = '#D8C7A0';
+
+    // ---- 20-stage progression (5x5, middle column = path) ----
+    const stages = [];
+    for (let s=1; s<=20; s++){
+      const cells=[]; let filled=0;
+      for (let i=0;i<25;i++){
+        const col = i%5;
+        if (col===2){ cells.push({bg:PATH}); continue; }
+        if (filled < s){ cells.push({bg:SOIL}); filled++; }
+        else cells.push({bg:DARK});
+      }
+      stages.push({ stage:s, num:String(s).padStart(2,'0'), cells });
+    }
+
+    // ---- world-map plots (4x4) with scattered crops ----
+    const crops = ['🥕','🌾','🍓','🎃','🌱'];
+    const makePlot = (seed) => {
+      const cells=[];
+      for (let i=0;i<16;i++){
+        const r = this.rnd(seed*13+i, seed*7+i*3);
+        if (r < 0.16){ cells.push({bg:DARK, crop:''}); }
+        else { cells.push({bg:SOIL, crop: r<0.46 ? crops[(seed+i)%crops.length] : '' }); }
+      }
+      return { cells };
+    };
+    const plotsTop    = [0,1,2,3].map(makePlot);
+    const plotsBottom = [4,5,6,7].map(makePlot);
+
+    const buildings = [
+      { emoji:'🌱', label:'씨앗 상점',        chip:'#bfe39a' },
+      { emoji:'🧺', label:'작물 판매',        chip:'#f0cf9a' },
+      { emoji:'💱', label:'환전소',           chip:'#a8dceb' },
+      { emoji:'📦', label:'보관함',           chip:'#e0cda0' },
+      { emoji:'🐾', label:'펫 판매',          chip:'#f0b8c6' },
+      { emoji:'🐣', label:'펫 구매',          chip:'#f5d79a' },
+      { emoji:'⬆️', label:'업그레이드 상점',  chip:'#cdbff0' },
+      { emoji:'🔨', label:'도구 및 알바 고용', chip:'#bcd0ee' },
+    ];
+
+    const legend = [
+      { color:SOIL, text:'작물을 심을 수 있는 땅' },
+      { color:DARK, text:'작물을 심을 수 없는 땅' },
+      { color:PATH, text:'길 · 이동 통로' },
+    ];
+
+    return { grassBg:GRASS, soilBg:SOIL, stages, plotsTop, plotsBottom, buildings, legend };
+  }
+}
+</script>
+</body>
+</html>

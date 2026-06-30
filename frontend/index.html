@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LUMIA 농장</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="stage">
+    <div class="viewport">
+      <canvas id="game" width="800" height="600"></canvas>
+
+      <!-- 상단 HUD 바 -->
+      <div class="hud-top">
+        <div class="hud-profile">
+          <div class="hud-avatar">🦊</div>
+          <div class="hud-name">
+            <span class="name" id="hudName">Kyle</span>
+            <span class="level"><span id="hudLevel">3</span> · 농장</span>
+          </div>
+        </div>
+        <div class="hud-currency">
+          <div class="chip chip-gold">
+            <span class="ic">🪙</span>
+            <span class="val" id="hudGold">0</span>
+            <span class="unit">G</span>
+          </div>
+          <div class="chip chip-luna">
+            <span class="ic">🌾</span>
+            <span class="val" id="hudLuna">0</span>
+            <span class="unit">LN</span>
+          </div>
+          <button class="chip chip-btn" id="invBtn" title="인벤토리">🎒</button>
+        </div>
+      </div>
+
+      <!-- 작물 정보 툴팁 (작물 위에 섰을 때) -->
+      <div class="crop-tip" id="cropTip" hidden></div>
+
+      <!-- 하단 상호작용 힌트 -->
+      <div class="hud-hint" id="hudHint" hidden>
+        <span class="key" id="hintKey">E</span>
+        <span class="text" id="hintText"></span>
+      </div>
+
+      <!-- 핫바 위: 현재 선택한 아이템의 종류·이름 -->
+      <div class="hotbar-label" id="hotbarLabel" hidden></div>
+
+      <!-- 하단 핫바 (항상 표시, 1~10번 슬롯) -->
+      <div class="hotbar" id="hotbar"></div>
+
+      <!-- 좌하단 컨트롤 안내 -->
+      <div class="hud-controls">
+        <span>WASD / 방향키 이동</span>
+        <span>E 상호작용</span>
+        <span>휠 핫바 전환</span>
+      </div>
+
+      <!-- 우측 TP 버튼 (상점/판매/집) -->
+      <div class="hud-tp">
+        <button class="tp-btn" id="tpShop"><span class="ic">🌱</span><span class="lb">상점</span></button>
+        <button class="tp-btn" id="tpSell"><span class="ic">🧺</span><span class="lb">판매</span></button>
+        <button class="tp-btn" id="tpHome"><span class="ic">🏠</span><span class="lb">집</span></button>
+      </div>
+
+      <!-- 토스트 알림 -->
+      <div class="toast" id="toast" hidden></div>
+
+      <!-- 상점 모달 -->
+      <div class="shop-overlay" id="shopOverlay" hidden>
+        <div class="shop-card">
+          <div class="shop-header" id="shopHeader"></div>
+          <div class="shop-body lumia-scroll" id="shopBody"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="shop.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
