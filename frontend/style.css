@@ -419,6 +419,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .pet-row .pr-hun { font-size: 10px; font-weight: 800; color: #8a9a5a; }
 .pet-row .pr-hun.low { color: #d6584f; }
 
+/* 화분에 담은 작물 안내 */
+.inv-carry { font-size: 11px; font-weight: 700; color: #7a5f34; background: rgba(176, 138, 74, 0.14); border-radius: 9px; padding: 8px 10px; margin-bottom: 8px; box-shadow: inset 0 0 0 2px rgba(176, 138, 74, 0.3); }
+.inv-carry b { color: #5a3d22; }
+
 /* 도구 및 알바 상점 */
 .hire { display: flex; flex-direction: column; gap: 8px; }
 .hire-sec { font-size: 12px; font-weight: 800; color: #2f5f88; margin-top: 4px; }

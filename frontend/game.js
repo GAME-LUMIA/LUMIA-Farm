@@ -710,14 +710,15 @@ class LumiaFarm {
         else { this.nearForeign = "soil"; } // 남의 농지엔 심을 수 없음
       }
     }
-    // 선택한 도구에 맞춰 힌트 문구 보정
+    // 도구/화분 상태에 맞춰 힌트 문구 보정 (다 자란 작물은 '수확하기' 유지)
     const selI = this.inv[this.sel] ? this.itemInfo(this.inv[this.sel].key) : null;
     const tid = selI && selI.cat === "tool" ? this.inv[this.sel].key.slice(5) : null;
-    if (tid && !this.nearBuilding) {
-      if (tid === "shovel" && this.nearCrop) hint = { text: "작물 파내기", key: "E" };
-      else if (tid === "can" && this.nearCrop && !this.nearCrop.ready) hint = { text: "물주기 (-5분)", key: "E" };
-      else if (tid === "pot" && this.carry && this.nearEmpty) hint = { text: "옮겨 심기", key: "E" };
-      else if (tid === "pot" && !this.carry && this.nearCrop) hint = { text: "화분에 담기", key: "E" };
+    const growing = this.nearCrop && !this.nearCrop.ready;
+    if (!this.nearBuilding) {
+      if (this.carry && this.nearEmpty) hint = { text: "옮겨 심기", key: "E" };
+      else if (tid === "shovel" && growing) hint = { text: "작물 파내기", key: "E" };
+      else if (tid === "can" && growing) hint = { text: "물주기 (-5분)", key: "E" };
+      else if (tid === "pot" && !this.carry && growing) hint = { text: "화분에 담기", key: "E" };
     }
     this.setHint(!!hint, hint ? hint.text : "", hint ? hint.key : "E");
     this.renderCropTip(tip);
@@ -726,7 +727,7 @@ class LumiaFarm {
   fmtTime(sec) {
     sec = Math.max(0, Math.ceil(sec));
     const m = Math.floor(sec / 60), s = sec % 60;
-    if (m > 0) return m + "분 " + s + "초";
+    if (m > 0) return s > 0 ? m + "분 " + s + "초" : m + "분";
     return s + "초";
   }
 
@@ -761,13 +762,30 @@ class LumiaFarm {
     c.growLeft = remain - (stagesRemaining - 1) * per;
   }
 
+  harvestCrop(c) {
+    c.ready = false; c.stage = 0; c.growLeft = c.secTotal / 3;
+    this.burst(c.gx + .5, c.gy + .5, "#ffe14d", 14);
+    if (this.addItem(this.inv, c.crop, 1)) { this.renderHotbar(); this.flash("+1 " + (this.CROPINFO[c.crop] ? this.CROPINFO[c.crop].name : "")); }
+    else this.flash("인벤토리가 가득 찼어요", false);
+  }
+
   // ---------- 상호작용 ----------
   interact() {
     if (this.nearBuilding) { this.openShop(this.nearBuilding.kind); return; }
     if (this.nearForeign === "crop") { this.flash("다른 농장의 작물이에요", false); return; }
     if (this.nearForeign === "soil") { this.flash("여긴 다른 농장이에요", false); return; }
 
-    // 선택한 도구 사용 (삽/물뿌리개/화분)
+    // 다 자란 작물은 어떤 도구를 들고 있어도 E로 수확
+    if (this.nearCrop && this.nearCrop.ready) { this.harvestCrop(this.nearCrop); return; }
+
+    // 화분에 담은 작물은 도구와 무관하게 빈 흙에서 옮겨 심기
+    if (this.carry && this.nearEmpty) {
+      const c = this.carry; c.gx = this.nearEmpty.gx; c.gy = this.nearEmpty.gy; this.crops.push(c); this.carry = null;
+      this.burst(c.gx + .5, c.gy + .5, "#8fd14f", 8); this.renderHotbar();
+      this.flash("화분의 작물을 옮겨 심었어요"); return;
+    }
+
+    // 선택한 도구 — 자라는 중인 작물 대상
     const selT = this.inv[this.sel];
     const selInfo = selT ? this.itemInfo(selT.key) : null;
     const toolId = selInfo && selInfo.cat === "tool" ? selT.key.slice(5) : null;
@@ -777,34 +795,24 @@ class LumiaFarm {
       return;
     }
     if (toolId === "can") {
-      if (this.nearCrop && !this.nearCrop.ready) {
-        if (this.canCd > 0) { this.flash("물뿌리개 재사용 대기 " + Math.ceil(this.canCd) + "초", false); return; }
+      if (this.nearCrop) {
+        if (this.canCd > 0) { this.flash("물뿌리개 재사용 대기 " + this.fmtTime(this.canCd), false); return; }
         this.advanceGrowth(this.nearCrop, 300);
         this.canUses--; if (this.canUses <= 0) { this.canUses = 5; this.canCd = 300; }
         this.burst(this.nearCrop.gx + .5, this.nearCrop.gy + .5, "#5fc8ff", 8);
-        this.flash("💧 물주기 · 성장 -5분 (남은 " + (this.canCd > 0 ? "0 · 쿨다운" : this.canUses) + ")");
+        this.flash(this.canCd > 0 ? "💧 물주기 -5분 · 재사용 대기 " + this.fmtTime(this.canCd) : "💧 물주기 -5분 (남은 " + this.canUses + "회)");
       } else this.flash("자라는 작물에 물을 주세요", false);
       return;
     }
     if (toolId === "pot") {
-      if (this.carry) {
-        if (this.nearEmpty) { const c = this.carry; c.gx = this.nearEmpty.gx; c.gy = this.nearEmpty.gy; this.crops.push(c); this.carry = null; this.burst(c.gx + .5, c.gy + .5, "#8fd14f", 8); this.flash("화분의 작물을 옮겨 심었어요"); }
-        else this.flash("빈 흙에 옮겨 심으세요", false);
-      } else {
-        if (this.nearCrop) { const i = this.crops.indexOf(this.nearCrop); if (i >= 0) this.crops.splice(i, 1); this.carry = this.nearCrop; this.removeKey(this.inv, "tool_pot", 1); this.renderHotbar(); this.burst(this.carry.gx + .5, this.carry.gy + .5, "#b08a4a", 8); this.flash("🪴 화분에 담았어요 · 빈 흙에서 E로 심기"); }
-        else this.flash("옮길 작물 위에서 사용하세요", false);
-      }
+      if (this.carry) { this.flash("빈 흙에서 E로 옮겨 심으세요", false); return; }
+      if (this.nearCrop) { const i = this.crops.indexOf(this.nearCrop); if (i >= 0) this.crops.splice(i, 1); this.carry = this.nearCrop; this.removeKey(this.inv, "tool_pot", 1); this.renderHotbar(); this.burst(this.carry.gx + .5, this.carry.gy + .5, "#b08a4a", 8); this.flash("🪴 화분에 담았어요 · 빈 흙에서 E로 심기"); }
+      else this.flash("옮길 작물 위에서 사용하세요", false);
       return;
     }
 
-    if (!this.nearCrop && !this.nearEmpty) { this.openShop("inventory"); return; }
-    if (this.nearCrop && this.nearCrop.ready) {
-      const c = this.nearCrop; c.ready = false; c.stage = 0; c.growLeft = c.secTotal / 3;
-      this.burst(c.gx + .5, c.gy + .5, "#ffe14d", 14);
-      if (this.addItem(this.inv, c.crop, 1)) { this.renderHotbar(); this.flash("+1 " + this.CROPINFO[c.crop].name); }
-      else { this.flash("인벤토리가 가득 찼어요", false); }
-    } else if (this.nearEmpty) {
-      // 핫바에서 선택한 씨앗으로 심기 (씨앗 없으면 심을 수 없음)
+    // 기본: 빈 흙 심기 / 빈 곳에서 인벤 열기
+    if (this.nearEmpty) {
       const sel = this.inv[this.sel];
       const info = sel ? this.itemInfo(sel.key) : null;
       if (!info || !info.seed) { this.flash("핫바에서 씨앗을 선택하세요", false); return; }
@@ -815,6 +823,8 @@ class LumiaFarm {
       this.burst(this.nearEmpty.gx + .5, this.nearEmpty.gy + .5, "#8fd14f", 8);
       this.renderHotbar();
       this.flash((this.CROPINFO[crop] ? this.CROPINFO[crop].name : "") + " 씨앗을 심었어요");
+    } else if (!this.nearCrop) {
+      this.openShop("inventory");
     }
   }
 
@@ -1224,9 +1234,16 @@ class LumiaFarm {
 
   renderInv(body) {
     const note = document.createElement("div"); note.className = "inv-note"; note.textContent = "🎒 들고 다니는 아이템 · 하단 핫바는 1~10번 슬롯";
+    body.appendChild(note);
+    if (this.carry) {
+      const info = this.CROPINFO[this.carry.crop] || { emoji: "🪴", name: "" };
+      const cn = document.createElement("div"); cn.className = "inv-carry";
+      cn.innerHTML = `🪴 화분에 담은 작물 <b>${info.emoji} ${info.name}</b> · 내 농장 빈 흙에서 <b>E</b>로 옮겨 심어요`;
+      body.appendChild(cn);
+    }
     const grid = document.createElement("div"); grid.className = "inv-grid";
     grid.innerHTML = this.inv.map((sl) => this.slotCellHtml(sl, "inv-cell")).join("");
-    body.appendChild(note); body.appendChild(grid);
+    body.appendChild(grid);
   }
 
   renderStore(body) {
@@ -1357,6 +1374,7 @@ class LumiaFarm {
     this.drawCrops(x, ox, oy);
     this.drawPets(x, ox, oy);
     this.drawPlayers(x, ox, oy);
+    if (this.carry) this.drawCarry(x, ox, oy);
     this.drawParticles(x, ox, oy);
     this.drawVignette(x);
   }
@@ -1537,6 +1555,19 @@ class LumiaFarm {
     x.fillStyle = "rgba(255,248,200,.95)";
     x.fillRect(-1, -r, 2, r * 2); x.fillRect(-r, -1, r * 2, 2);
     x.fillStyle = "rgba(255,255,255,.9)"; x.fillRect(-1, -1, 2, 2);
+    x.restore();
+  }
+
+  // 화분에 담은 작물을 플레이어 머리 위에 표시
+  drawCarry(x, ox, oy) {
+    const T = this.TILE;
+    const info = this.CROPINFO[this.carry.crop] || { emoji: "🪴" };
+    const px = Math.round(this.player.x + ox), py = Math.round(this.player.y + oy - T * 1.0 + Math.sin(this.t * 0.06) * 2);
+    x.save();
+    x.fillStyle = "rgba(255,247,236,.95)"; x.strokeStyle = "#b08a4a"; x.lineWidth = 2;
+    x.beginPath(); x.arc(px, py, T * 0.32, 0, 6.28); x.fill(); x.stroke();
+    x.textAlign = "center"; x.textBaseline = "middle"; x.font = Math.round(T * 0.4) + "px serif";
+    x.fillText(info.emoji, px, py);
     x.restore();
   }
 
