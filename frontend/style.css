@@ -369,6 +369,26 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .st-sort.on { color: #fff; background: #c98a3a; }
 .store-empty { grid-column: 1 / -1; text-align: center; font-size: 11px; color: #9a7f50; padding: 18px 0; }
 
+/* 업그레이드 상점 (땅 / 보관함) */
+.upgshop { display: flex; flex-direction: column; gap: 12px; }
+.up-card { background: rgba(138, 106, 214, 0.08); border-radius: 12px; padding: 12px; box-shadow: inset 0 0 0 2px rgba(138, 106, 214, 0.25); display: flex; flex-direction: column; gap: 10px; }
+.up-head { display: flex; align-items: center; gap: 9px; }
+.up-ic { font-size: 22px; }
+.up-t { display: flex; flex-direction: column; flex: 1; }
+.up-nm { font-size: 13px; font-weight: 800; color: #4a3670; }
+.up-sub { font-size: 10px; color: #7a6aa0; }
+.up-lv { font-family: "Press Start 2P", monospace; font-size: 9px; color: #fff; background: #8a6ad6; padding: 4px 7px; border-radius: 7px; }
+.land-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 2px; max-width: 240px; margin: 0 auto; }
+.lc { display: inline-block; aspect-ratio: 1; border-radius: 2px; }
+.lc.active { background: #7bbf4a; box-shadow: inset 0 0 0 1px #5f9e34; }
+.lc.lock { background: rgba(120, 90, 55, 0.18); box-shadow: inset 0 0 0 1px rgba(120, 90, 55, 0.3); }
+.lc.road { background: #c9bfa8; box-shadow: inset 0 0 0 1px #b3a888; }
+.up-legend { display: flex; justify-content: center; gap: 14px; font-size: 10px; color: #6a5a48; }
+.up-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.up-legend .lc { width: 11px; height: 11px; }
+.up-do { width: 100%; }
+.up-do:disabled { opacity: 0.5; cursor: default; }
+
 /* 스크롤바 */
 .lumia-scroll::-webkit-scrollbar { width: 10px; }
 .lumia-scroll::-webkit-scrollbar-track { background: rgba(90, 61, 34, 0.15); border-radius: 5px; }

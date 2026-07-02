@@ -30,6 +30,9 @@ class LumiaFarm {
     this.sto = this.makeInv([["carrot", 40], ["pumpkin", 6], ["wheat", 25], ["pumpkin_seed", 4], ["tool_shovel", 1], ["tool_pot", 3], ["pet_chick", 1]], this.storeCapForLv(1));
     this.stoFilter = "all"; // all | tool | pet | crop | seed
     this.stoSort = null;    // null | asc | desc (판매가 기준)
+    // 업그레이드 레벨
+    this.landLv = 1;  // 땅 업그레이드 1~19
+    // storeLv(보관함) 1~5 는 위에서 초기화
 
     // 상점/환전
     this.shopKind = null;
@@ -59,7 +62,7 @@ class LumiaFarm {
       exch: { emoji: "💱", label: "환전소", color: "#3fb3c9", sub: "골드 ↔ 루나 환전", layout: "exch" },
       inventory: { emoji: "🎒", label: "인벤토리", color: "#7a8b3a", sub: "들고 다니는 아이템", layout: "inv" },
       storage: { emoji: "📦", label: "보관함", color: "#b08a4a", sub: "인벤토리 ↔ 창고 보관/꺼내기", layout: "store" },
-      upgrade: { emoji: "⬆️", label: "업그레이드 상점", color: "#8a6ad6", sub: "도구와 농장을 강화", layout: "upg" },
+      upgrade: { emoji: "⬆️", label: "업그레이드 상점", color: "#8a6ad6", sub: "농장 땅과 보관함을 확장", layout: "upgshop" },
       hire: { emoji: "🔨", label: "도구 및 알바 고용", color: "#5a9bd6", sub: "일손과 장비를 빌리세요", layout: "upg" },
     };
     this.PETS = [
@@ -753,6 +756,7 @@ class LumiaFarm {
     else if (layout === "sell") this.renderSell(body, kind);
     else if (layout === "exch") this.renderExch(body);
     else if (layout === "upg") this.renderUpg(body, kind);
+    else if (layout === "upgshop") this.renderUpgradeShop(body);
     else if (layout === "inv") this.renderInv(body);
     else if (layout === "store") this.renderStore(body);
   }
@@ -846,6 +850,67 @@ class LumiaFarm {
       list.appendChild(row);
     });
     body.appendChild(list);
+  }
+
+  // ---- 땅 업그레이드 그리드 사양(11행 × 10열, 좌블록 열0~4 / 우블록 열5~9) ----
+  // 좌블록: 단계별 활성 최대 행(포함). 9단계에서 좌블록 전체(행0~10).
+  landLeftMaxRow(lv) { const T = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 6, 7: 8, 8: 9, 9: 10 }; return lv >= 9 ? 10 : T[lv]; }
+  // 우블록: 10단계부터 활성. 단계별 최대 행. 10단계 미만이면 -1(비활성=길).
+  landRightMaxRow(lv) { const T = { 10: 0, 11: 1, 12: 2, 13: 3, 14: 4, 15: 6, 16: 7, 17: 8, 18: 9, 19: 10 }; return lv >= 10 ? T[lv] : -1; }
+  // (r,c) 셀 상태: active(농지) | lock(좌블록 미개방) | road(우블록 미개방=길)
+  landCellState(lv, r, c) {
+    if (c <= 4) return r <= this.landLeftMaxRow(lv) ? "active" : "lock";
+    return (lv >= 10 && r <= this.landRightMaxRow(lv)) ? "active" : "road";
+  }
+  landActiveCount(lv) { let n = 0; for (let r = 0; r <= 10; r++) for (let c = 0; c <= 9; c++) if (this.landCellState(lv, r, c) === "active") n++; return n; }
+  // 다음 단계로 올릴 때 비용(점점 비싸짐). LN(루나).
+  landUpgradeCost(lv) { return Math.round(80 * Math.pow(1.35, lv - 1)); }
+  storageUpgradeCost(lv) { return Math.round(200 * Math.pow(1.8, lv - 1)); }
+
+  renderUpgradeShop(body) {
+    const wrap = document.createElement("div"); wrap.className = "upgshop";
+
+    // ── 땅 업그레이드 ──
+    const landMax = 19, landMaxed = this.landLv >= landMax;
+    const landCost = this.landUpgradeCost(this.landLv);
+    const landCard = document.createElement("div"); landCard.className = "up-card";
+    let gridHtml = "";
+    for (let r = 0; r <= 10; r++) for (let c = 0; c <= 9; c++) gridHtml += `<i class="lc ${this.landCellState(this.landLv, r, c)}"></i>`;
+    landCard.innerHTML =
+      `<div class="up-head"><span class="up-ic">🌍</span><div class="up-t"><span class="up-nm">땅 업그레이드</span><span class="up-sub">농지 칸을 확장합니다 · 활성 ${this.landActiveCount(this.landLv)}칸</span></div><span class="up-lv">Lv ${this.landLv} / ${landMax}</span></div>` +
+      `<div class="land-grid">${gridHtml}</div>` +
+      `<div class="up-legend"><span><i class="lc active"></i>농지</span><span><i class="lc lock"></i>미개방</span><span><i class="lc road"></i>길</span></div>` +
+      (landMaxed
+        ? `<button class="btn up-do" disabled>최대 단계</button>`
+        : `<button class="btn up-do">🌾 ${this.fmt(landCost)} · Lv ${this.landLv + 1}로 강화</button>`);
+    if (!landMaxed) landCard.querySelector(".up-do").addEventListener("click", () => this.doLandUpgrade());
+    wrap.appendChild(landCard);
+
+    // ── 보관함 업그레이드 ──
+    const stMax = 5, stMaxed = this.storeLv >= stMax;
+    const stCost = this.storageUpgradeCost(this.storeLv);
+    const stCard = document.createElement("div"); stCard.className = "up-card";
+    stCard.innerHTML =
+      `<div class="up-head"><span class="up-ic">📦</span><div class="up-t"><span class="up-nm">보관함 업그레이드</span><span class="up-sub">현재 ${this.storeCap()}칸${stMaxed ? "" : ` → ${this.storeCapForLv(this.storeLv + 1)}칸 (+64)`}</span></div><span class="up-lv">Lv ${this.storeLv} / ${stMax}</span></div>` +
+      (stMaxed
+        ? `<button class="btn up-do" disabled>최대 단계</button>`
+        : `<button class="btn up-do">🌾 ${this.fmt(stCost)} · Lv ${this.storeLv + 1}로 강화</button>`);
+    if (!stMaxed) stCard.querySelector(".up-do").addEventListener("click", () => this.doStorageUpgrade());
+    wrap.appendChild(stCard);
+
+    body.appendChild(wrap);
+  }
+  doLandUpgrade() {
+    if (this.landLv >= 19) { this.flash("이미 최대 단계", false); return; }
+    if (this.buy(this.landUpgradeCost(this.landLv), "luna", "땅 확장")) { this.landLv++; this.renderShop(); }
+  }
+  doStorageUpgrade() {
+    if (this.storeLv >= 5) { this.flash("이미 최대 단계", false); return; }
+    if (this.buy(this.storageUpgradeCost(this.storeLv), "luna", "보관함 확장")) {
+      this.storeLv++;
+      while (this.sto.length < this.storeCap()) this.sto.push(null); // +64칸
+      this.renderShop();
+    }
   }
 
   slotCellHtml(sl, cls) {
