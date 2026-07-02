@@ -22,10 +22,14 @@ class LumiaFarm {
     this.hintText = "";
     this.hintKey = "E";
 
-    // 인벤토리/핫바 (씨앗은 "<작물>_seed" 키로 아이템화)
+    // 인벤토리/핫바 (씨앗은 "<작물>_seed", 도구는 "tool_*", 펫은 "pet_*" 키로 아이템화)
     this.sel = 0;
     this.inv = this.makeInv([["carrot_seed", 8], ["wheat_seed", 5], ["strawberry_seed", 3], ["carrot", 6], ["wheat", 4]], 30);
-    this.sto = this.makeInv([["carrot", 40], ["pumpkin", 6], ["wheat", 25], ["pumpkin_seed", 4]], 30);
+    // 보관함: 기본 64칸. 보관함 업그레이드(1~5단계)마다 +64칸 → storeLv로 용량 산출.
+    this.storeLv = 1;
+    this.sto = this.makeInv([["carrot", 40], ["pumpkin", 6], ["wheat", 25], ["pumpkin_seed", 4], ["tool_shovel", 1], ["tool_pot", 3], ["pet_chick", 1]], this.storeCapForLv(1));
+    this.stoFilter = "all"; // all | tool | pet | crop | seed
+    this.stoSort = null;    // null | asc | desc (판매가 기준)
 
     // 상점/환전
     this.shopKind = null;
@@ -40,6 +44,12 @@ class LumiaFarm {
       strawberry: { name: "딸기", emoji: "🍓", seed: 34, sell: 60, grow: "7분", secs: 420 },
       pumpkin: { name: "호박", emoji: "🎃", seed: 48, sell: 95, grow: "10분", secs: 600 },
       star: { name: "별과일", emoji: "⭐", seed: 120, sell: 240, grow: "20분", secs: 1200, luna: true },
+    };
+    // 도구 (보관 가능, 판매/정렬 불가)
+    this.TOOLINFO = {
+      shovel: { name: "삽", emoji: "🪏", desc: "작물·씨앗 파괴" },
+      can: { name: "물뿌리개", emoji: "🚿", desc: "성장 시간 -5분 (5회/쿨다운)" },
+      pot: { name: "화분", emoji: "🪴", desc: "작물을 옮겨 심기 (일회용)" },
     };
     this.SHOPMETA = {
       seed: { emoji: "🌱", label: "씨앗 상점", color: "#5fae3a", sub: "심을 씨앗을 골라보세요", layout: "buy" },
@@ -220,14 +230,42 @@ class LumiaFarm {
     for (let i = 0; i < arr.length && left > 0; i++) { const sl = arr[i]; if (sl && sl.key === key) { const t = Math.min(left, sl.count); sl.count -= t; left -= t; if (sl.count <= 0) arr[i] = null; } }
     return n - left;
   }
-  // 아이템 키 → 표시 정보 (작물 + "<작물>_seed" 씨앗 모두 처리)
+  // 아이템 키 → 표시 정보. cat: crop|seed|tool|pet, sell: 정렬용 판매가(도구=null)
   itemInfo(key) {
     if (typeof key === "string" && key.endsWith("_seed")) {
       const ck = key.slice(0, -5), c = this.CROPINFO[ck];
-      return { emoji: c ? c.emoji : "🌱", name: (c ? c.name : "") + " 씨앗", seed: true, crop: ck };
+      return { emoji: c ? c.emoji : "🌱", name: (c ? c.name : "") + " 씨앗", seed: true, crop: ck, cat: "seed", sell: c ? c.seed : 0 };
+    }
+    if (typeof key === "string" && key.startsWith("tool_")) {
+      const t = this.TOOLINFO[key.slice(5)];
+      return { emoji: t ? t.emoji : "🔧", name: t ? t.name : key, seed: false, cat: "tool", sell: null };
+    }
+    if (typeof key === "string" && key.startsWith("pet_")) {
+      const p = this.PETS.find((pp) => pp.id === key.slice(4));
+      return { emoji: p ? p.emoji : "🐾", name: p ? p.name : key, seed: false, cat: "pet", sell: p ? Math.floor(p.price * 0.6) : 0 };
     }
     const c = this.CROPINFO[key];
-    return { emoji: c ? c.emoji : "❔", name: c ? c.name : key, seed: false };
+    return { emoji: c ? c.emoji : "❔", name: c ? c.name : key, seed: false, cat: "crop", sell: c ? c.sell : 0 };
+  }
+  // 보관함 용량: 기본 64칸, 레벨(1~5)마다 +64칸
+  storeCapForLv(lv) { return 64 * Math.max(1, lv); }
+  storeCap() { return this.storeCapForLv(this.storeLv); }
+  // 필터+정렬 적용된 보관함 표시 목록 → [{sl, idx}] (idx=실제 sto 인덱스)
+  storeView() {
+    let view = this.sto.map((sl, idx) => ({ sl, idx })).filter((e) => e.sl);
+    if (this.stoFilter !== "all") view = view.filter((e) => this.itemInfo(e.sl.key).cat === this.stoFilter);
+    if (this.stoSort) {
+      const dir = this.stoSort === "asc" ? 1 : -1;
+      // 도구는 정렬 대상 아님 → 뒤로 밀되 원래 순서 유지
+      view.sort((a, b) => {
+        const ia = this.itemInfo(a.sl.key), ib = this.itemInfo(b.sl.key);
+        const ta = ia.cat === "tool", tb = ib.cat === "tool";
+        if (ta !== tb) return ta ? 1 : -1;
+        if (ta && tb) return a.idx - b.idx;
+        return (ia.sell - ib.sell) * dir;
+      });
+    }
+    return view;
   }
   // 내 농장(myPlot) 안의 타일인지
   inMyPlot(gx, gy) {
@@ -831,9 +869,32 @@ class LumiaFarm {
     left.appendChild(lg);
     const mid = document.createElement("div"); mid.className = "store-mid"; mid.textContent = "⇄";
     const right = document.createElement("div"); right.className = "store-col";
-    right.innerHTML = `<div class="store-head"><span class="t">📦 보관함</span><span class="hint">← 클릭 1개 · Shift 전부</span></div>`;
+    const used = this.sto.reduce((s, sl) => s + (sl ? 1 : 0), 0), cap = this.storeCap();
+    right.innerHTML = `<div class="store-head"><span class="t">📦 보관함 <b class="cap">${used}/${cap}</b></span><span class="hint">← 클릭 1개 · Shift 전부</span></div>`;
+    // 필터 + 정렬 컨트롤
+    const ctrl = document.createElement("div"); ctrl.className = "store-ctrl";
+    const tabs = [["all", "전체"], ["tool", "🪏 도구"], ["pet", "🐾 펫"], ["crop", "🌱 작물"], ["seed", "🌰 씨앗"]];
+    const tabWrap = document.createElement("div"); tabWrap.className = "store-tabs";
+    tabs.forEach(([k, lbl]) => {
+      const b = document.createElement("button"); b.className = "st-tab" + (this.stoFilter === k ? " on" : ""); b.textContent = lbl;
+      b.addEventListener("click", () => { this.stoFilter = k; this.renderShop(); });
+      tabWrap.appendChild(b);
+    });
+    const sortBtn = document.createElement("button"); sortBtn.className = "st-sort" + (this.stoSort ? " on" : "");
+    sortBtn.textContent = "판매가 " + (this.stoSort === "asc" ? "▲" : this.stoSort === "desc" ? "▼" : "↕");
+    sortBtn.title = "판매가 정렬 (도구 제외)";
+    sortBtn.addEventListener("click", () => { this.stoSort = this.stoSort === null ? "asc" : this.stoSort === "asc" ? "desc" : null; this.renderShop(); });
+    ctrl.appendChild(tabWrap); ctrl.appendChild(sortBtn);
+    right.appendChild(ctrl);
     const rg = document.createElement("div"); rg.className = "store-grid withdraw";
-    this.sto.forEach((sl, i) => { const cell = this.mkStoreCell(sl, "withdraw", i); rg.appendChild(cell); });
+    if (this.stoFilter === "all" && !this.stoSort) {
+      // 기본 보기: 빈 칸 포함 전체 (예치 대상 칸 노출)
+      this.sto.forEach((sl, i) => rg.appendChild(this.mkStoreCell(sl, "withdraw", i)));
+    } else {
+      const view = this.storeView();
+      if (!view.length) { const e = document.createElement("div"); e.className = "store-empty"; e.textContent = "해당하는 아이템이 없어요"; rg.appendChild(e); }
+      else view.forEach((e) => rg.appendChild(this.mkStoreCell(e.sl, "withdraw", e.idx)));
+    }
     right.appendChild(rg);
     wrap.appendChild(left); wrap.appendChild(mid); wrap.appendChild(right);
     body.appendChild(wrap);

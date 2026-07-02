@@ -357,6 +357,17 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .store-cell.filled:hover { filter: brightness(1.06); box-shadow: inset 0 0 0 2px #c8a85e; }
 .store-cell.empty { background: rgba(120, 90, 55, 0.1); box-shadow: inset 0 0 0 2px rgba(140, 110, 70, 0.22); }
 .store-cell .count { position: absolute; right: 2px; bottom: 1px; font-family: "Press Start 2P", monospace; font-size: 7px; color: #5a3d22; background: rgba(255, 255, 255, 0.85); padding: 1px 2px; border-radius: 3px; }
+.store-head .cap { font-family: "Press Start 2P", monospace; font-size: 9px; color: #8a6736; }
+/* 보관함 필터/정렬 컨트롤 */
+.store-ctrl { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+.store-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+.st-tab { font-size: 10px; font-weight: 700; color: #7a5f34; background: rgba(176, 138, 74, 0.14); border: none; border-radius: 7px; padding: 4px 7px; cursor: pointer; }
+.st-tab:hover { background: rgba(176, 138, 74, 0.26); }
+.st-tab.on { color: #fff; background: #b08a4a; }
+.st-sort { font-size: 10px; font-weight: 700; color: #7a5f34; background: rgba(176, 138, 74, 0.14); border: none; border-radius: 7px; padding: 4px 8px; cursor: pointer; white-space: nowrap; }
+.st-sort:hover { background: rgba(176, 138, 74, 0.26); }
+.st-sort.on { color: #fff; background: #c98a3a; }
+.store-empty { grid-column: 1 / -1; text-align: center; font-size: 11px; color: #9a7f50; padding: 18px 0; }
 
 /* 스크롤바 */
 .lumia-scroll::-webkit-scrollbar { width: 10px; }
