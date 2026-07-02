@@ -23,11 +23,12 @@ class LumiaFarm {
     this.hintKey = "E";
 
     // 인벤토리/핫바 (씨앗은 "<작물>_seed", 도구는 "tool_*", 펫은 "pet_*" 키로 아이템화)
+    // 시작 시 빈 손 — 씨앗/도구는 상점에서 구매, 작물은 심어서 수확.
     this.sel = 0;
-    this.inv = this.makeInv([["carrot_seed", 8], ["wheat_seed", 5], ["strawberry_seed", 3], ["carrot", 6], ["wheat", 4]], 30);
+    this.inv = this.makeInv([], 30);
     // 보관함: 기본 64칸. 보관함 업그레이드(1~5단계)마다 +64칸 → storeLv로 용량 산출.
     this.storeLv = 1;
-    this.sto = this.makeInv([["carrot", 40], ["pumpkin", 6], ["wheat", 25], ["pumpkin_seed", 4], ["tool_shovel", 1], ["tool_pot", 3]], this.storeCapForLv(1));
+    this.sto = this.makeInv([], this.storeCapForLv(1));
     this.stoFilter = "all"; // all | tool | pet | crop | seed
     this.stoSort = null;    // null | asc | desc (판매가 기준)
     // 업그레이드 레벨
