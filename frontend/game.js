@@ -695,18 +695,14 @@ class LumiaFarm {
       const mine = this.inMyPlot(gx, gy);
       if (crop) {
         const info = this.CROPINFO[crop.crop] || { name: "", emoji: "❔" };
-        if (crop.ready && mine) {
-          hint = { text: "수확하기", key: "E" }; this.nearCrop = crop;
-          tip = { emoji: info.emoji, name: info.name, ready: true, time: "" };
+        const totalLeft = crop.ready ? 0 : ((2 - crop.stage) * (crop.secTotal / 3) + crop.growLeft);
+        tip = { emoji: info.emoji, name: info.name, ready: crop.ready, time: crop.ready ? "" : this.fmtTime(totalLeft) };
+        if (mine) {
+          // 내 농지 작물은 성장 중이어도 잡아둔다(도구 사용 대상). 수확 힌트는 다 자랐을 때만.
+          this.nearCrop = crop;
+          if (crop.ready) hint = { text: "수확하기", key: "E" };
         } else {
-          // 남의 농지 작물은 정보만 표시(재배·수확 불가)
-          if (!mine) this.nearForeign = "crop";
-          if (crop.ready) tip = { emoji: info.emoji, name: info.name, ready: true, time: "" };
-          else {
-            const per = crop.secTotal / 3;
-            const totalLeft = (2 - crop.stage) * per + crop.growLeft;
-            tip = { emoji: info.emoji, name: info.name, ready: false, time: this.fmtTime(totalLeft) };
-          }
+          this.nearForeign = "crop"; // 남의 농지 작물은 정보만 표시
         }
       } else if (cell && cell.t === "soil") {
         if (mine) { hint = { text: "씨앗 심기", key: "E" }; this.nearEmpty = { gx, gy }; }
@@ -1133,7 +1129,10 @@ class LumiaFarm {
   // ---------- 도구 & 알바 ----------
   albaInterval(kind) { return (6 - this.alba[kind].lv) * 60; } // LV1=5분 … LV5=1분 (초)
   albaCost(kind) { return kind === "feed" ? 150 : 100 + this.alba[kind].lv * 80; }
+  toolOwned(id) { return this.countKey(this.inv, "tool_" + id) + this.countKey(this.sto, "tool_" + id); }
   buyTool(id) {
+    // 삽/물뿌리개는 1회만 구매(영구 보유, 소모되지 않음)
+    if (id !== "pot" && this.toolOwned(id) >= 1) { this.flash("이미 보유 중이에요", false); return; }
     if (this.buy(this.TOOLPRICE[id], "gold", this.TOOLINFO[id].name)) {
       if (!this.addItem(this.inv, "tool_" + id, 1)) this.flash("인벤토리가 가득 찼어요", false);
       this.renderHotbar(); this.renderShop();
@@ -1178,11 +1177,13 @@ class LumiaFarm {
     // 도구
     const th = document.createElement("div"); th.className = "hire-sec"; th.textContent = "🧰 도구"; wrap.appendChild(th);
     const tools = document.createElement("div"); tools.className = "upg-list";
-    [["shovel", "재사용"], ["can", "5회/쿨다운"], ["pot", "일회용·개수 제한 없음"]].forEach(([id, note]) => {
-      const t = this.TOOLINFO[id], have = this.countKey(this.inv, "tool_" + id), poor = this.gold < this.TOOLPRICE[id];
+    [["shovel", "1회 구매·영구 보유"], ["can", "1회 구매·영구 · 5회 후 5분 쿨다운"], ["pot", "일회용·개수 제한 없음"]].forEach(([id, note]) => {
+      const t = this.TOOLINFO[id], have = this.toolOwned(id), single = id !== "pot";
+      const owned = single && have >= 1, poor = this.gold < this.TOOLPRICE[id], off = owned || poor;
       const row = document.createElement("div"); row.className = "upg-row";
-      row.innerHTML = `<div class="ic">${t.emoji}</div><div class="info"><div class="top"><span class="nm">${t.name}</span><span class="lv">보유 ${have}</span></div><span class="sub">${t.desc} · ${note}</span><span class="price" style="color:#c08a2a">🪙 ${this.fmt(this.TOOLPRICE[id])}</span></div><button class="btn do${poor ? " off" : ""}"${poor ? " disabled" : ""}>${poor ? "골드 부족" : "구매"}</button>`;
-      if (!poor) row.querySelector(".do").addEventListener("click", () => this.buyTool(id));
+      const label = owned ? "보유중" : poor ? "골드 부족" : "구매";
+      row.innerHTML = `<div class="ic">${t.emoji}</div><div class="info"><div class="top"><span class="nm">${t.name}</span><span class="lv">보유 ${have}</span></div><span class="sub">${t.desc} · ${note}</span>${owned ? "" : `<span class="price" style="color:#c08a2a">🪙 ${this.fmt(this.TOOLPRICE[id])}</span>`}</div><button class="btn do${off ? " off" : ""}"${off ? " disabled" : ""}>${label}</button>`;
+      if (!off) row.querySelector(".do").addEventListener("click", () => this.buyTool(id));
       tools.appendChild(row);
     });
     wrap.appendChild(tools);
