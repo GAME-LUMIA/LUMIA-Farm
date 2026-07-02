@@ -16,3 +16,7 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
+
+# 로컬 리소스 / 문서 (깃 제외)
+resource
+CLAUDE.md

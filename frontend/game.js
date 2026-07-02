@@ -376,7 +376,7 @@ class LumiaFarm {
     // 농지 앞(게이트 쪽) 주인 팻말 — 위 농지는 아래쪽, 아래 농지는 위쪽
     this.signs = this.plots.map((pl) => {
       const midx = pl.x + Math.floor(pl.w / 2);
-      const px = midx * this.TILE;
+      const px = (midx - 2) * this.TILE; // 팻말을 좌측으로 2칸 이동
       const py = (pl.gate === "bottom" ? pl.y + pl.h + 0.5 : pl.y - 0.5) * this.TILE;
       return { px, py, label: pl.owner, mine: pl.mine };
     });
