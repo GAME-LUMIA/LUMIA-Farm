@@ -63,7 +63,7 @@ class LumiaFarm {
       inventory: { emoji: "🎒", label: "인벤토리", color: "#7a8b3a", sub: "들고 다니는 아이템", layout: "inv" },
       storage: { emoji: "📦", label: "보관함", color: "#b08a4a", sub: "인벤토리 ↔ 창고 보관/꺼내기", layout: "store" },
       upgrade: { emoji: "⬆️", label: "업그레이드 상점", color: "#8a6ad6", sub: "농장 땅과 보관함을 확장", layout: "upgshop" },
-      hire: { emoji: "🔨", label: "도구 및 알바 고용", color: "#5a9bd6", sub: "일손과 장비를 빌리세요", layout: "upg" },
+      hire: { emoji: "🔨", label: "도구 및 알바 고용", color: "#5a9bd6", sub: "장비를 사고 일손을 고용하세요", layout: "hire" },
     };
     // 펫 종(외형) — 알에서 랜덤으로 태어남
     this.PETS = [
@@ -83,6 +83,15 @@ class LumiaFarm {
     this.EGG_PRICE = 120;   // 알 가격(LN)
     this.PET_MAX = 3;       // 최대 장착 펫
     this.pets = [];         // 소유/배회 펫
+
+    // 도구(골드 구매) + 물뿌리개 사용/쿨다운 + 화분 운반
+    this.TOOLPRICE = { shovel: 80, can: 120, pot: 15 };
+    this.canUses = 5;       // 물뿌리개 남은 사용(5회)
+    this.canCd = 0;         // 물뿌리개 재사용 대기(초)
+    this.carry = null;      // 화분에 담은 작물
+    // 알바: 심기/판매(1~5LV), 펫먹이(1명, 중반 해금)
+    this.alba = { plant: { lv: 0, max: 5, timer: 0 }, feed: { hired: false, timer: 0 }, sell: { lv: 0, max: 5, timer: 0 } };
+    this.FEED_UNLOCK_LV = 3; // 펫먹이 알바 해금 농장레벨(중반)
     this.UPGRADES = {
       upgrade: [
         { id: "can", name: "물뿌리개", emoji: "💧", lv: 2, max: 5, cost: 150, cur: "gold", desc: "한 번에 더 넓게 물주기" },
@@ -338,7 +347,7 @@ class LumiaFarm {
     const sl = this.inv[this.sel];
     if (!sl) { el.hidden = true; return; }
     const info = this.itemInfo(sl.key);
-    const type = info.seed ? "씨앗" : "작물";
+    const type = info.cat === "seed" ? "씨앗" : info.cat === "tool" ? "도구" : info.cat === "pet" ? "펫" : "작물";
     el.innerHTML = `<span class="hl-emoji">${info.emoji}</span>` +
       `<span class="hl-name">${info.name}</span>` +
       `<span class="hl-type${info.seed ? " seed" : ""}">${type}</span>`;
@@ -657,6 +666,13 @@ class LumiaFarm {
     }
     // 펫 배회 + 능력
     this.updatePets(dt, ds);
+    // 물뿌리개 재사용 대기
+    if (this.canCd > 0) { this.canCd = Math.max(0, this.canCd - ds); if (this.canCd === 0) this.canUses = 5; }
+    // 알바 자동 작업
+    const A = this.alba;
+    if (A.plant.lv > 0) { A.plant.timer -= ds; if (A.plant.timer <= 0) { A.plant.timer = this.albaInterval("plant"); this.albaPlant(); } }
+    if (A.sell.lv > 0) { A.sell.timer -= ds; if (A.sell.timer <= 0) { A.sell.timer = this.albaInterval("sell"); this.albaSell(); } }
+    if (A.feed.hired) { A.feed.timer -= ds; if (A.feed.timer <= 0) { A.feed.timer = 15; this.albaFeed(); } }
     // 파티클
     for (let i = this.particles.length - 1; i >= 0; i--) { const pa = this.particles[i]; pa.x += pa.vx * dt; pa.y += pa.vy * dt; pa.life -= dt; if (pa.life <= 0) this.particles.splice(i, 1); }
     this.detectHint();
@@ -697,6 +713,15 @@ class LumiaFarm {
         else { this.nearForeign = "soil"; } // 남의 농지엔 심을 수 없음
       }
     }
+    // 선택한 도구에 맞춰 힌트 문구 보정
+    const selI = this.inv[this.sel] ? this.itemInfo(this.inv[this.sel].key) : null;
+    const tid = selI && selI.cat === "tool" ? this.inv[this.sel].key.slice(5) : null;
+    if (tid && !this.nearBuilding) {
+      if (tid === "shovel" && this.nearCrop) hint = { text: "작물 파내기", key: "E" };
+      else if (tid === "can" && this.nearCrop && !this.nearCrop.ready) hint = { text: "물주기 (-5분)", key: "E" };
+      else if (tid === "pot" && this.carry && this.nearEmpty) hint = { text: "옮겨 심기", key: "E" };
+      else if (tid === "pot" && !this.carry && this.nearCrop) hint = { text: "화분에 담기", key: "E" };
+    }
     this.setHint(!!hint, hint ? hint.text : "", hint ? hint.key : "E");
     this.renderCropTip(tip);
   }
@@ -728,11 +753,53 @@ class LumiaFarm {
     this.cropTip.show = true;
   }
 
+  // 작물 성장을 secs초만큼 앞당김(물뿌리개용)
+  advanceGrowth(c, secs) {
+    if (c.ready) return;
+    const per = c.secTotal / 3;
+    const remain = (2 - c.stage) * per + c.growLeft - secs;
+    if (remain <= 0) { c.ready = true; c.stage = 2; c.growLeft = 0; return; }
+    const stagesRemaining = Math.max(1, Math.ceil(remain / per));
+    c.stage = 3 - stagesRemaining;
+    c.growLeft = remain - (stagesRemaining - 1) * per;
+  }
+
   // ---------- 상호작용 ----------
   interact() {
     if (this.nearBuilding) { this.openShop(this.nearBuilding.kind); return; }
     if (this.nearForeign === "crop") { this.flash("다른 농장의 작물이에요", false); return; }
     if (this.nearForeign === "soil") { this.flash("여긴 다른 농장이에요", false); return; }
+
+    // 선택한 도구 사용 (삽/물뿌리개/화분)
+    const selT = this.inv[this.sel];
+    const selInfo = selT ? this.itemInfo(selT.key) : null;
+    const toolId = selInfo && selInfo.cat === "tool" ? selT.key.slice(5) : null;
+    if (toolId === "shovel") {
+      if (this.nearCrop) { const i = this.crops.indexOf(this.nearCrop); if (i >= 0) this.crops.splice(i, 1); this.burst(this.nearCrop.gx + .5, this.nearCrop.gy + .5, "#a9743e", 10); this.flash("작물을 파냈어요"); }
+      else this.flash("작물 위에서 삽을 사용하세요", false);
+      return;
+    }
+    if (toolId === "can") {
+      if (this.nearCrop && !this.nearCrop.ready) {
+        if (this.canCd > 0) { this.flash("물뿌리개 재사용 대기 " + Math.ceil(this.canCd) + "초", false); return; }
+        this.advanceGrowth(this.nearCrop, 300);
+        this.canUses--; if (this.canUses <= 0) { this.canUses = 5; this.canCd = 300; }
+        this.burst(this.nearCrop.gx + .5, this.nearCrop.gy + .5, "#5fc8ff", 8);
+        this.flash("💧 물주기 · 성장 -5분 (남은 " + (this.canCd > 0 ? "0 · 쿨다운" : this.canUses) + ")");
+      } else this.flash("자라는 작물에 물을 주세요", false);
+      return;
+    }
+    if (toolId === "pot") {
+      if (this.carry) {
+        if (this.nearEmpty) { const c = this.carry; c.gx = this.nearEmpty.gx; c.gy = this.nearEmpty.gy; this.crops.push(c); this.carry = null; this.burst(c.gx + .5, c.gy + .5, "#8fd14f", 8); this.flash("화분의 작물을 옮겨 심었어요"); }
+        else this.flash("빈 흙에 옮겨 심으세요", false);
+      } else {
+        if (this.nearCrop) { const i = this.crops.indexOf(this.nearCrop); if (i >= 0) this.crops.splice(i, 1); this.carry = this.nearCrop; this.removeKey(this.inv, "tool_pot", 1); this.renderHotbar(); this.burst(this.carry.gx + .5, this.carry.gy + .5, "#b08a4a", 8); this.flash("🪴 화분에 담았어요 · 빈 흙에서 E로 심기"); }
+        else this.flash("옮길 작물 위에서 사용하세요", false);
+      }
+      return;
+    }
+
     if (!this.nearCrop && !this.nearEmpty) { this.openShop("inventory"); return; }
     if (this.nearCrop && this.nearCrop.ready) {
       const c = this.nearCrop; c.ready = false; c.stage = 0; c.growLeft = c.secTotal / 3;
@@ -809,6 +876,7 @@ class LumiaFarm {
     else if (layout === "upgshop") this.renderUpgradeShop(body);
     else if (layout === "petbuy") this.renderPetBuy(body);
     else if (layout === "petsell") this.renderPetSell(body);
+    else if (layout === "hire") this.renderHire(body);
     else if (layout === "inv") this.renderInv(body);
     else if (layout === "store") this.renderStore(body);
   }
@@ -968,7 +1036,7 @@ class LumiaFarm {
     const sp = this.PETS[Math.floor(Math.random() * this.PETS.length)];
     const p = this.myPlot, T = this.TILE;
     const cx = (p.x + p.w / 2) * T, cy = (p.y + p.h / 2) * T;
-    return { type, name: sp.name, emoji: sp.emoji, x: cx, y: cy, tx: cx, ty: cy, timer: this.PET_ABILITIES[type].every * (0.4 + Math.random() * 0.6), bob: Math.random() * 6.28 };
+    return { type, name: sp.name, emoji: sp.emoji, x: cx, y: cy, tx: cx, ty: cy, timer: this.PET_ABILITIES[type].every * (0.4 + Math.random() * 0.6), bob: Math.random() * 6.28, hunger: 100 };
   }
   spawnInitialPets() {
     this.pets = [];
@@ -1021,6 +1089,8 @@ class LumiaFarm {
       pet.x += (pet.tx - pet.x) * Math.min(1, 0.04 * dt);
       pet.y += (pet.ty - pet.y) * Math.min(1, 0.04 * dt);
       pet.bob += dt * 0.12;
+      if (pet.hunger === undefined) pet.hunger = 100;
+      pet.hunger = Math.max(0, pet.hunger - ds * 0.15); // 서서히 배고픔
       pet.timer -= ds;
       if (pet.timer <= 0) { pet.timer = this.PET_ABILITIES[pet.type].every; this.petAct(pet); }
     }
@@ -1041,7 +1111,7 @@ class LumiaFarm {
     wrap.appendChild(abil);
     if (n) {
       const list = document.createElement("div"); list.className = "pet-list";
-      this.pets.forEach((pt) => { const a = this.PET_ABILITIES[pt.type]; const r = document.createElement("div"); r.className = "pet-row"; r.innerHTML = `<span class="pr-em">${pt.emoji}</span><span class="pr-nm">${pt.name}</span><span class="pr-ab">${a.icon} ${a.label}</span>`; list.appendChild(r); });
+      this.pets.forEach((pt) => { const a = this.PET_ABILITIES[pt.type]; const hun = Math.round(pt.hunger === undefined ? 100 : pt.hunger); const r = document.createElement("div"); r.className = "pet-row"; r.innerHTML = `<span class="pr-em">${pt.emoji}</span><span class="pr-nm">${pt.name}</span><span class="pr-ab">${a.icon} ${a.label}</span><span class="pr-hun${hun < 20 ? " low" : ""}">🍖 ${hun}%</span>`; list.appendChild(r); });
       wrap.appendChild(list);
     }
     body.appendChild(wrap);
@@ -1058,6 +1128,91 @@ class LumiaFarm {
       list.appendChild(row);
     });
     body.appendChild(list);
+  }
+
+  // ---------- 도구 & 알바 ----------
+  albaInterval(kind) { return (6 - this.alba[kind].lv) * 60; } // LV1=5분 … LV5=1분 (초)
+  albaCost(kind) { return kind === "feed" ? 150 : 100 + this.alba[kind].lv * 80; }
+  buyTool(id) {
+    if (this.buy(this.TOOLPRICE[id], "gold", this.TOOLINFO[id].name)) {
+      if (!this.addItem(this.inv, "tool_" + id, 1)) this.flash("인벤토리가 가득 찼어요", false);
+      this.renderHotbar(); this.renderShop();
+    }
+  }
+  hireAlba(kind) {
+    const a = this.alba[kind];
+    if (kind === "feed") {
+      if (a.hired) { this.flash("이미 고용 중", false); return; }
+      if (this.farmLevel < this.FEED_UNLOCK_LV) { this.flash("농장 Lv " + this.FEED_UNLOCK_LV + " 이상 필요", false); return; }
+      if (this.buy(this.albaCost("feed"), "gold", "펫 먹이 알바")) { a.hired = true; this.renderShop(); }
+      return;
+    }
+    if (a.lv >= a.max) { this.flash("이미 최대 레벨", false); return; }
+    if (this.buy(this.albaCost(kind), "gold", kind === "plant" ? "심기 알바" : "판매 알바")) { a.lv++; this.renderShop(); }
+  }
+  albaPlant() {
+    const p = this.myPlot; if (!p) return;
+    const seedSlot = this.inv.find((s) => s && this.itemInfo(s.key).seed);
+    if (!seedSlot) return;
+    for (let y = p.y + 1; y < p.y + p.h - 1; y++) for (let x = p.x + 1; x < p.x + p.w - 1; x++) {
+      const cell = this.grid[y][x];
+      if (cell && cell.t === "soil" && !this.crops.some((c) => c.gx === x && c.gy === y)) {
+        const crop = this.itemInfo(seedSlot.key).crop;
+        this.removeKey(this.inv, seedSlot.key, 1);
+        const sec = (this.CROPINFO[crop] || this.CROPINFO.carrot).secs;
+        this.crops.push({ gx: x, gy: y, crop, stage: 0, ready: false, sway: Math.random() * 6.28, secTotal: sec, growLeft: sec / 3 });
+        this.burst(x + .5, y + .5, "#8fd14f", 5); this.renderHotbar();
+        return;
+      }
+    }
+  }
+  albaSell() {
+    let gain = 0;
+    Object.keys(this.CROPINFO).forEach((k) => { const h = this.countKey(this.inv, k); if (h > 0) { gain += h * this.CROPINFO[k].sell; this.removeKey(this.inv, k, h); } });
+    if (gain > 0) { this.gold += gain; this.renderHud(); this.renderHotbar(); }
+  }
+  albaFeed() { for (const pet of this.pets) if (pet.hunger < 20) pet.hunger = 100; }
+
+  renderHire(body) {
+    const wrap = document.createElement("div"); wrap.className = "hire";
+    // 도구
+    const th = document.createElement("div"); th.className = "hire-sec"; th.textContent = "🧰 도구"; wrap.appendChild(th);
+    const tools = document.createElement("div"); tools.className = "upg-list";
+    [["shovel", "재사용"], ["can", "5회/쿨다운"], ["pot", "일회용·개수 제한 없음"]].forEach(([id, note]) => {
+      const t = this.TOOLINFO[id], have = this.countKey(this.inv, "tool_" + id), poor = this.gold < this.TOOLPRICE[id];
+      const row = document.createElement("div"); row.className = "upg-row";
+      row.innerHTML = `<div class="ic">${t.emoji}</div><div class="info"><div class="top"><span class="nm">${t.name}</span><span class="lv">보유 ${have}</span></div><span class="sub">${t.desc} · ${note}</span><span class="price" style="color:#c08a2a">🪙 ${this.fmt(this.TOOLPRICE[id])}</span></div><button class="btn do${poor ? " off" : ""}"${poor ? " disabled" : ""}>${poor ? "골드 부족" : "구매"}</button>`;
+      if (!poor) row.querySelector(".do").addEventListener("click", () => this.buyTool(id));
+      tools.appendChild(row);
+    });
+    wrap.appendChild(tools);
+    // 알바
+    const ah = document.createElement("div"); ah.className = "hire-sec"; ah.textContent = "🧑‍🌾 알바 고용"; wrap.appendChild(ah);
+    const albas = document.createElement("div"); albas.className = "upg-list";
+    const mkAlba = (kind, emoji, name, mkDesc) => {
+      const a = this.alba[kind];
+      const row = document.createElement("div"); row.className = "upg-row";
+      let lvText, cost, off, label, sub;
+      if (kind === "feed") {
+        const locked = this.farmLevel < this.FEED_UNLOCK_LV;
+        cost = this.albaCost("feed"); const poor = this.gold < cost;
+        lvText = a.hired ? "고용중" : locked ? "🔒 Lv" + this.FEED_UNLOCK_LV : "고용 가능";
+        off = a.hired || locked || poor; label = a.hired ? "고용중" : locked ? "Lv" + this.FEED_UNLOCK_LV + " 필요" : poor ? "골드 부족" : "고용";
+        sub = mkDesc(a);
+      } else {
+        const maxed = a.lv >= a.max; cost = this.albaCost(kind); const poor = this.gold < cost;
+        lvText = "Lv " + a.lv + " / " + a.max; off = maxed || poor;
+        label = maxed ? "최대" : poor ? "골드 부족" : (a.lv === 0 ? "고용" : "강화"); sub = mkDesc(a);
+      }
+      row.innerHTML = `<div class="ic">${emoji}</div><div class="info"><div class="top"><span class="nm">${name}</span><span class="lv">${lvText}</span></div><span class="sub">${sub}</span>${off && (kind === "feed" ? this.alba.feed.hired : this.alba[kind].lv >= this.alba[kind].max) ? "" : `<span class="price" style="color:#c08a2a">🪙 ${this.fmt(cost)}</span>`}</div><button class="btn do${off ? " off" : ""}"${off ? " disabled" : ""}>${label}</button>`;
+      if (!off) row.querySelector(".do").addEventListener("click", () => this.hireAlba(kind));
+      albas.appendChild(row);
+    };
+    mkAlba("plant", "🌱", "심기 알바", (a) => a.lv === 0 ? "씨앗을 대신 심어줘요 (고용 시 5분마다)" : `${6 - a.lv}분마다 빈 흙에 씨앗을 심어줘요`);
+    mkAlba("sell", "🧺", "판매 알바", (a) => a.lv === 0 ? "수확물을 대신 팔아줘요 (고용 시 5분마다)" : `${6 - a.lv}분마다 인벤 작물을 팔아줘요`);
+    mkAlba("feed", "🍖", "펫 먹이 알바", () => "펫 배고픔이 20% 이하면 먹이를 줘요 (1명)");
+    wrap.appendChild(albas);
+    body.appendChild(wrap);
   }
 
   slotCellHtml(sl, cls) {

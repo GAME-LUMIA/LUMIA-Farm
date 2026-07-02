@@ -416,6 +416,13 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .pet-row .pr-em { font-size: 18px; }
 .pet-row .pr-nm { font-size: 12px; font-weight: 800; color: #7a4a18; flex: 1; }
 .pet-row .pr-ab { font-size: 10px; font-weight: 700; color: #b3874f; }
+.pet-row .pr-hun { font-size: 10px; font-weight: 800; color: #8a9a5a; }
+.pet-row .pr-hun.low { color: #d6584f; }
+
+/* 도구 및 알바 상점 */
+.hire { display: flex; flex-direction: column; gap: 8px; }
+.hire-sec { font-size: 12px; font-weight: 800; color: #2f5f88; margin-top: 4px; }
+.upg-row .do.off, .upg-row .do:disabled { background: #eef1f4; color: #a7b0ba; box-shadow: 0 2px 0 #d4dae0; cursor: default; filter: saturate(0.2); }
 
 /* 스크롤바 */
 .lumia-scroll::-webkit-scrollbar { width: 10px; }
