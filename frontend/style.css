@@ -391,6 +391,32 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .up-do.off, .up-do:disabled { background: #eef1f4; color: #a7b0ba; box-shadow: 0 2px 0 #d4dae0; cursor: default; filter: saturate(0.2); }
 .up-do.off:hover, .up-do:disabled:hover { background: #eef1f4; }
 
+/* 펫샵 */
+.petshop { display: flex; flex-direction: column; gap: 12px; }
+.pet-info { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; font-weight: 800; color: #9a5a1e; flex-wrap: wrap; }
+.pet-info b { font-family: "Press Start 2P", monospace; font-size: 10px; }
+.pet-info .pet-hint { font-size: 10px; font-weight: 600; color: #b3874f; }
+.pet-egg { display: flex; align-items: center; gap: 10px; background: rgba(224, 134, 58, 0.1); border-radius: 12px; padding: 12px; box-shadow: inset 0 0 0 2px rgba(224, 134, 58, 0.25); }
+.pet-egg .egg-ic { font-size: 34px; }
+.pet-egg .egg-body { display: flex; flex-direction: column; flex: 1; gap: 2px; }
+.pet-egg .egg-nm { font-size: 13px; font-weight: 800; color: #7a4a18; }
+.pet-egg .egg-sub { font-size: 10px; color: #a9743e; }
+.pet-egg .egg-price { font-size: 12px; font-weight: 800; color: #3f9fc2; margin-top: 2px; }
+.egg-buy { background: #e0863a; color: #fff; box-shadow: 0 2px 0 #b36523; white-space: nowrap; }
+.egg-buy:hover { background: #ef963f; }
+.egg-buy.off, .egg-buy:disabled { background: #eef1f4; color: #a7b0ba; box-shadow: 0 2px 0 #d4dae0; cursor: default; filter: saturate(0.2); }
+.pet-abils { display: flex; flex-direction: column; gap: 6px; }
+.pet-abil { display: flex; align-items: center; gap: 8px; background: rgba(224, 134, 58, 0.06); border-radius: 9px; padding: 7px 10px; }
+.pet-abil .ab-ic { font-size: 18px; }
+.pet-abil .ab-t { display: flex; flex-direction: column; }
+.pet-abil .ab-t b { font-size: 11px; color: #7a4a18; }
+.pet-abil .ab-t i { font-size: 10px; color: #a9743e; font-style: normal; }
+.pet-list { display: flex; flex-direction: column; gap: 5px; margin-top: 2px; }
+.pet-row { display: flex; align-items: center; gap: 8px; background: #fff6ec; border-radius: 9px; padding: 6px 10px; box-shadow: inset 0 0 0 2px #f0d7bd; }
+.pet-row .pr-em { font-size: 18px; }
+.pet-row .pr-nm { font-size: 12px; font-weight: 800; color: #7a4a18; flex: 1; }
+.pet-row .pr-ab { font-size: 10px; font-weight: 700; color: #b3874f; }
+
 /* 스크롤바 */
 .lumia-scroll::-webkit-scrollbar { width: 10px; }
 .lumia-scroll::-webkit-scrollbar-track { background: rgba(90, 61, 34, 0.15); border-radius: 5px; }
