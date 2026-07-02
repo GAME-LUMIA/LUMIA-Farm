@@ -386,8 +386,10 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .up-legend { display: flex; justify-content: center; gap: 14px; font-size: 10px; color: #6a5a48; }
 .up-legend span { display: inline-flex; align-items: center; gap: 4px; }
 .up-legend .lc { width: 11px; height: 11px; }
-.up-do { width: 100%; }
-.up-do:disabled { opacity: 0.5; cursor: default; }
+.up-do { width: 100%; background: #3f8fe0; color: #fff; box-shadow: 0 2px 0 #2f6cad; }
+.up-do:hover { background: #4f9ff0; }
+.up-do.off, .up-do:disabled { background: #eef1f4; color: #a7b0ba; box-shadow: 0 2px 0 #d4dae0; cursor: default; filter: saturate(0.2); }
+.up-do.off:hover, .up-do:disabled:hover { background: #eef1f4; }
 
 /* 스크롤바 */
 .lumia-scroll::-webkit-scrollbar { width: 10px; }

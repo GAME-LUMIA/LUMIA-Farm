@@ -373,14 +373,21 @@ class LumiaFarm {
         } else {
           // 가운데 보행로 (5 + 길 + 5)
           if (o.midPath && x === px + Math.floor(pw / 2)) { g[y][x] = { t: "floor" }; continue; }
-          // 내부 흙; 우측 컬럼은 확장용으로 잠금
-          const lockedCols = o.locked || 0;
-          const locked = o.allLocked || x >= px + pw - 1 - lockedCols;
-          g[y][x] = { t: locked ? "locked" : "soil", v: Math.floor(this.rnd(x, y, 7) * 2) };
+          if (o.mine) {
+            // 내 농지: 땅 업그레이드 단계(landLv)에 따라 활성 칸만 흙, 나머지는 잠금
+            const rc = this.myLocalRC(px, py, pw, ph, x, y);
+            const active = rc && this.landCellState(this.landLv, rc.r, rc.c) === "active";
+            g[y][x] = { t: active ? "soil" : "locked", v: Math.floor(this.rnd(x, y, 7) * 2) };
+          } else {
+            // 이웃 농지: 우측 컬럼은 확장용으로 잠금
+            const lockedCols = o.locked || 0;
+            const locked = o.allLocked || x >= px + pw - 1 - lockedCols;
+            g[y][x] = { t: locked ? "locked" : "soil", v: Math.floor(this.rnd(x, y, 7) * 2) };
+          }
         }
       }
-      // 열린 흙에 작물 심기(성장 타이머 포함)
-      if (!o.allLocked) {
+      // 열린 흙에 작물 심기(성장 타이머 포함) — 내 농지는 비워두고 플레이어가 심은 것만 유지
+      if (!o.allLocked && !o.mine) {
         const types = ["carrot", "wheat", "strawberry", "pumpkin", "star"];
         const density = o.mine ? .8 : .55;
         for (let y = py + 1; y < py + ph - 1; y++) for (let x = px + 1; x < px + pw - 1; x++) {
@@ -472,6 +479,32 @@ class LumiaFarm {
 
   // 농장 로컬 좌표 → 월드 타일. 로컬 (0,0) = 울타리 안쪽 첫 타일(왼쪽 위)
   farmTile(lx, ly) { return { wx: this.myPlot.x + 1 + lx, wy: this.myPlot.y + 1 + ly }; }
+
+  // 내 농지의 월드(x,y) → 땅 그리드 좌표 {r,c}. 외곽/가운데 길/범위 밖이면 null.
+  // 좌블록(열0~4)·우블록(열5~9), 가운데 길 제외. 플롯 높이상 행은 0~9만.
+  myLocalRC(px, py, pw, ph, x, y) {
+    if (x <= px || x >= px + pw - 1 || y <= py || y >= py + ph - 1) return null;
+    const mid = px + Math.floor(pw / 2);
+    if (x === mid) return null;
+    const r = y - (py + 1);
+    if (r < 0 || r > 9) return null;
+    const c = x < mid ? x - (px + 1) : 5 + (x - (mid + 1));
+    if (c < 0 || c > 9) return null;
+    return { r, c };
+  }
+  // 땅 업그레이드 반영: 새로 활성화된 잠금 칸을 흙으로 바꾸고 월드 재베이크.
+  applyLandLevel() {
+    const p = this.myPlot; if (!p) return;
+    for (let y = p.y + 1; y < p.y + p.h - 1; y++) for (let x = p.x + 1; x < p.x + p.w - 1; x++) {
+      const rc = this.myLocalRC(p.x, p.y, p.w, p.h, x, y);
+      if (!rc) continue;
+      if (this.landCellState(this.landLv, rc.r, rc.c) === "active") {
+        const cell = this.grid[y][x];
+        if (cell && cell.t !== "soil") this.grid[y][x] = { t: "soil", v: Math.floor(this.rnd(x, y, 7) * 2) };
+      }
+    }
+    this.bakeWorld();
+  }
 
   // 지정한 농지의 로컬 좌표(왼쪽 위 안쪽 첫 타일 = 0,0) 울타리를 제거하고 잔디로 되돌림
   removeFenceForPlot(plot, lx, ly) {
@@ -876,33 +909,31 @@ class LumiaFarm {
     const landCard = document.createElement("div"); landCard.className = "up-card";
     let gridHtml = "";
     for (let r = 0; r <= 10; r++) for (let c = 0; c <= 9; c++) gridHtml += `<i class="lc ${this.landCellState(this.landLv, r, c)}"></i>`;
+    const landPoor = !landMaxed && this.luna < landCost, landOff = landMaxed || landPoor;
     landCard.innerHTML =
       `<div class="up-head"><span class="up-ic">🌍</span><div class="up-t"><span class="up-nm">땅 업그레이드</span><span class="up-sub">농지 칸을 확장합니다 · 활성 ${this.landActiveCount(this.landLv)}칸</span></div><span class="up-lv">Lv ${this.landLv} / ${landMax}</span></div>` +
       `<div class="land-grid">${gridHtml}</div>` +
       `<div class="up-legend"><span><i class="lc active"></i>농지</span><span><i class="lc lock"></i>미개방</span><span><i class="lc road"></i>길</span></div>` +
-      (landMaxed
-        ? `<button class="btn up-do" disabled>최대 단계</button>`
-        : `<button class="btn up-do">🌾 ${this.fmt(landCost)} · Lv ${this.landLv + 1}로 강화</button>`);
-    if (!landMaxed) landCard.querySelector(".up-do").addEventListener("click", () => this.doLandUpgrade());
+      `<button class="btn up-do${landOff ? " off" : ""}"${landOff ? " disabled" : ""}>${landMaxed ? "최대 단계" : landPoor ? `🌾 ${this.fmt(landCost)} · 루나 부족` : `🌾 ${this.fmt(landCost)} · Lv ${this.landLv + 1}로 강화`}</button>`;
+    if (!landOff) landCard.querySelector(".up-do").addEventListener("click", () => this.doLandUpgrade());
     wrap.appendChild(landCard);
 
     // ── 보관함 업그레이드 ──
     const stMax = 5, stMaxed = this.storeLv >= stMax;
     const stCost = this.storageUpgradeCost(this.storeLv);
     const stCard = document.createElement("div"); stCard.className = "up-card";
+    const stPoor = !stMaxed && this.luna < stCost, stOff = stMaxed || stPoor;
     stCard.innerHTML =
       `<div class="up-head"><span class="up-ic">📦</span><div class="up-t"><span class="up-nm">보관함 업그레이드</span><span class="up-sub">현재 ${this.storeCap()}칸${stMaxed ? "" : ` → ${this.storeCapForLv(this.storeLv + 1)}칸 (+64)`}</span></div><span class="up-lv">Lv ${this.storeLv} / ${stMax}</span></div>` +
-      (stMaxed
-        ? `<button class="btn up-do" disabled>최대 단계</button>`
-        : `<button class="btn up-do">🌾 ${this.fmt(stCost)} · Lv ${this.storeLv + 1}로 강화</button>`);
-    if (!stMaxed) stCard.querySelector(".up-do").addEventListener("click", () => this.doStorageUpgrade());
+      `<button class="btn up-do${stOff ? " off" : ""}"${stOff ? " disabled" : ""}>${stMaxed ? "최대 단계" : stPoor ? `🌾 ${this.fmt(stCost)} · 루나 부족` : `🌾 ${this.fmt(stCost)} · Lv ${this.storeLv + 1}로 강화`}</button>`;
+    if (!stOff) stCard.querySelector(".up-do").addEventListener("click", () => this.doStorageUpgrade());
     wrap.appendChild(stCard);
 
     body.appendChild(wrap);
   }
   doLandUpgrade() {
     if (this.landLv >= 19) { this.flash("이미 최대 단계", false); return; }
-    if (this.buy(this.landUpgradeCost(this.landLv), "luna", "땅 확장")) { this.landLv++; this.renderShop(); }
+    if (this.buy(this.landUpgradeCost(this.landLv), "luna", "땅 확장")) { this.landLv++; this.applyLandLevel(); this.renderShop(); }
   }
   doStorageUpgrade() {
     if (this.storeLv >= 5) { this.flash("이미 최대 단계", false); return; }
