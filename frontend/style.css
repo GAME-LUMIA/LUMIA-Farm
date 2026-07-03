@@ -291,6 +291,7 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 
 /* 공통 버튼/카드 */
 .shop-body .btn { border: none; border-radius: 9px; color: #fff; font-weight: 800; font-size: 13px; cursor: pointer; padding: 8px 12px; }
+.shop-body .btn:disabled { background: #eef1f4; color: #a7b0ba; box-shadow: 0 2px 0 #d4dae0; cursor: default; filter: saturate(0.2); }
 .shop-body .btn.buy { align-self: stretch; width: 52px; flex-shrink: 0; background: linear-gradient(180deg, #7bc24a, #5fa233); box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.35), 0 3px 0 #4a8527; }
 .shop-body .ic { width: 46px; height: 46px; flex-shrink: 0; border-radius: 9px; background: #efe0c4; display: flex; align-items: center; justify-content: center; font-size: 25px; box-shadow: inset 0 0 0 1.5px #d8c198; }
 .shop-body .info { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }

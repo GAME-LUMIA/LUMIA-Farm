@@ -93,20 +93,6 @@ class LumiaFarm {
     // 알바: 심기/판매(1~5LV), 펫먹이(1명, 중반 해금)
     this.alba = { plant: { lv: 0, max: 5, timer: 0 }, feed: { hired: false, timer: 0 }, sell: { lv: 0, max: 5, timer: 0 } };
     this.FEED_UNLOCK_LV = 3; // 펫먹이 알바 해금 농장레벨(중반)
-    this.UPGRADES = {
-      upgrade: [
-        { id: "can", name: "물뿌리개", emoji: "💧", lv: 2, max: 5, cost: 150, cur: "gold", desc: "한 번에 더 넓게 물주기" },
-        { id: "hoe", name: "곡괭이", emoji: "⛏️", lv: 1, max: 5, cost: 220, cur: "gold", desc: "경작 속도 증가" },
-        { id: "plot", name: "농장 확장", emoji: "🌍", lv: 3, max: 8, cost: 500, cur: "luna", desc: "심을 수 있는 땅 +1줄" },
-        { id: "sprinkler", name: "자동 스프링클러", emoji: "⛲", lv: 0, max: 3, cost: 800, cur: "luna", desc: "물주기 자동화" },
-      ],
-      hire: [
-        { id: "worker", name: "알바 일꾼", emoji: "🧑‍🌾", lv: 0, max: 3, cost: 60, cur: "gold", desc: "하루 동안 자동 수확" },
-        { id: "tractor", name: "트랙터 대여", emoji: "🚜", lv: 0, max: 1, cost: 120, cur: "gold", desc: "한 번에 전체 경작" },
-        { id: "merchant", name: "행상인 호출", emoji: "🛒", lv: 0, max: 1, cost: 90, cur: "gold", desc: "더 비싼 값에 판매" },
-      ],
-    };
-
     this.cam = { x: 0, y: 0 };
     this.particles = [];
     this.t = 0;
@@ -877,9 +863,8 @@ class LumiaFarm {
     body.innerHTML = "";
     const layout = meta.layout;
     if (layout === "buy") this.renderBuy(body, kind);
-    else if (layout === "sell") this.renderSell(body, kind);
+    else if (layout === "sell") this.renderSell(body);
     else if (layout === "exch") this.renderExch(body);
-    else if (layout === "upg") this.renderUpg(body, kind);
     else if (layout === "upgshop") this.renderUpgradeShop(body);
     else if (layout === "petbuy") this.renderPetBuy(body);
     else if (layout === "petsell") this.renderPetSell(body);
@@ -889,9 +874,8 @@ class LumiaFarm {
   }
 
   renderBuy(body, kind) {
-    const items = kind === "seed"
-      ? Object.keys(this.CROPINFO).map((k) => { const c = this.CROPINFO[k]; return { emoji: c.emoji, name: c.name + " 씨앗", sub: "성장 " + c.grow, price: c.seed, cur: c.luna ? "luna" : "gold", buy: () => this.buySeed(k) }; })
-      : this.PETS.map((p) => ({ emoji: p.emoji, name: p.name, sub: p.desc, price: p.price, cur: p.cur, buy: () => this.buyPet(p) }));
+    // 현재 buy 레이아웃은 씨앗 상점 전용 (펫은 petbuy 레이아웃)
+    const items = Object.keys(this.CROPINFO).map((k) => { const c = this.CROPINFO[k]; return { emoji: c.emoji, name: c.name + " 씨앗", sub: "성장 " + c.grow, price: c.seed, cur: c.luna ? "luna" : "gold", buy: () => this.buySeed(k) }; });
     const grid = document.createElement("div"); grid.className = "buy-grid";
     items.forEach((it) => {
       const cu = this.cur(it.cur);
@@ -903,34 +887,25 @@ class LumiaFarm {
     body.appendChild(grid);
   }
 
-  renderSell(body, kind) {
+  renderSell(body) {
+    // 작물 판매 전용 (펫 분양은 petsell 레이아웃)
     const list = document.createElement("div"); list.className = "sell-list";
     let total = 0;
-    if (kind === "sell") {
-      Object.keys(this.CROPINFO).forEach((k) => {
-        const c = this.CROPINFO[k], n = this.countKey(this.inv, k); total += n * c.sell;
-        const row = document.createElement("div"); row.className = "sell-row"; row.style.opacity = n <= 0 ? .45 : 1;
-        row.innerHTML = `<div class="ic">${c.emoji}</div><div class="info"><span class="nm">${c.name}</span><span class="sub">보유 ${n}개 · 개당 🪙 ${this.fmt(c.sell)}</span></div><button class="btn one">1개</button><button class="btn sellbtn">판매</button>`;
-        row.querySelector(".one").addEventListener("click", () => this.sellCrop(k, false));
-        row.querySelector(".sellbtn").addEventListener("click", () => this.sellCrop(k, true));
-        list.appendChild(row);
-      });
-    } else {
-      this.PETS.slice(0, 2).forEach((p) => {
-        const row = document.createElement("div"); row.className = "sell-row";
-        row.innerHTML = `<div class="ic">${p.emoji}</div><div class="info"><span class="nm">${p.name}</span><span class="sub">보유 1개 · 개당 🪙 ${this.fmt(Math.floor(p.price * 0.6))}</span></div><button class="btn one">1개</button><button class="btn sellbtn">판매</button>`;
-        row.querySelector(".one").addEventListener("click", () => this.flash(p.name + " 판매 완료!"));
-        row.querySelector(".sellbtn").addEventListener("click", () => this.flash(p.name + " 판매 완료!"));
-        list.appendChild(row);
-      });
-    }
+    Object.keys(this.CROPINFO).forEach((k) => {
+      const c = this.CROPINFO[k], n = this.countKey(this.inv, k), stored = this.countKey(this.sto, k);
+      total += n * c.sell;
+      const row = document.createElement("div"); row.className = "sell-row"; row.style.opacity = n <= 0 ? .45 : 1;
+      const sub = `보유 ${n}개${stored > 0 ? ` · 보관함 ${stored}개` : ""} · 개당 🪙 ${this.fmt(c.sell)}`;
+      row.innerHTML = `<div class="ic">${c.emoji}</div><div class="info"><span class="nm">${c.name}</span><span class="sub">${sub}</span></div><button class="btn one"${n <= 0 ? " disabled" : ""}>1개</button><button class="btn sellbtn"${n <= 0 ? " disabled" : ""}>판매</button>`;
+      row.querySelector(".one").addEventListener("click", () => this.sellCrop(k, false));
+      row.querySelector(".sellbtn").addEventListener("click", () => this.sellCrop(k, true));
+      list.appendChild(row);
+    });
     body.appendChild(list);
-    if (kind === "sell") {
-      const bar = document.createElement("div"); bar.className = "sell-total";
-      bar.innerHTML = `<span class="lbl">전체 예상 수익</span><span class="amt">🪙 ${this.fmt(total)}</span><button class="btn allbtn">전체 판매</button>`;
-      bar.querySelector(".allbtn").addEventListener("click", () => this.sellAll());
-      body.appendChild(bar);
-    }
+    const bar = document.createElement("div"); bar.className = "sell-total";
+    bar.innerHTML = `<span class="lbl">전체 예상 수익</span><span class="amt">🪙 ${this.fmt(total)}</span><button class="btn allbtn"${total <= 0 ? " disabled" : ""}>전체 판매</button>`;
+    bar.querySelector(".allbtn").addEventListener("click", () => this.sellAll());
+    body.appendChild(bar);
   }
 
   renderExch(body) {
@@ -964,19 +939,6 @@ class LumiaFarm {
     wrap.querySelector(".maxbtn").addEventListener("click", () => { this.setExch(this.exchSrcMax()); input.value = this.exchAmt; sync(); });
     wrap.querySelector(".exch-go").addEventListener("click", () => this.doExchange());
     body.appendChild(wrap);
-  }
-
-  renderUpg(body, kind) {
-    const list = document.createElement("div"); list.className = "upg-list";
-    this.UPGRADES[kind].forEach((u) => {
-      const cu = this.cur(u.cur), maxed = u.lv >= u.max;
-      const lvText = kind === "hire" ? (maxed ? "고용중" : "대여 가능") : ("Lv " + u.lv + " / " + u.max);
-      const row = document.createElement("div"); row.className = "upg-row";
-      row.innerHTML = `<div class="ic">${u.emoji}</div><div class="info"><div class="top"><span class="nm">${u.name}</span><span class="lv">${lvText}</span></div><span class="sub">${u.desc}</span><span class="price" style="color:${cu.color}">${cu.icon} ${this.fmt(u.cost)}</span></div><button class="btn do">${kind === "hire" ? "고용" : "강화"}</button>`;
-      row.querySelector(".do").addEventListener("click", () => this.doUpgrade(u));
-      list.appendChild(row);
-    });
-    body.appendChild(list);
   }
 
   // ---- 땅 업그레이드 그리드 사양(11행 × 10열, 좌블록 열0~4 / 우블록 열5~9) ----
@@ -1308,8 +1270,6 @@ class LumiaFarm {
     }
     this.renderShop();
   }
-  buyPet(p) { this.buy(p.price, p.cur, p.name); this.renderShop(); }
-  doUpgrade(u) { if (u.lv >= u.max) { this.flash("이미 최대 레벨", false); return; } if (this.buy(u.cost, u.cur, u.name)) { u.lv++; } this.renderShop(); }
 
   sellCrop(key, all) {
     const have = this.countKey(this.inv, key);
@@ -1331,7 +1291,11 @@ class LumiaFarm {
   }
 
   exchSrcMax() { return this.exchDir === "g2l" ? this.gold : this.luna; }
-  setExch(v) { this.exchAmt = Math.max(0, Math.min(this.exchSrcMax(), Math.round(v))); }
+  setExch(v) {
+    let n = Math.max(0, Math.min(this.exchSrcMax(), Math.round(v)));
+    if (this.exchDir === "g2l") n = Math.floor(n / 10) * 10; // 골드→루나는 10G 단위로 스냅
+    this.exchAmt = n;
+  }
   doExchange() {
     const amt = this.exchAmt, dir = this.exchDir;
     if (dir === "g2l") {
