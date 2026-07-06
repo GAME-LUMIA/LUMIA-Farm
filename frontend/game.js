@@ -1937,14 +1937,38 @@ class LumiaFarm {
       const px = Math.round(pet.x + ox), py = Math.round(pet.y + oy);
       if (P) {
         const fi = P.frameForMotion(pet.moving, pet.anim);
-        P.drawPet(x, pet.id, px, py, fi, 1.35, { t: this.t * 0.05, aura: pet.starving ? null : pet.ability, badge: !pet.starving });
-        if (pet.starving) this.drawHungryBubble(x, px, py - 46);
+        if (pet.starving) {
+          // 제자리에서 우는 모습: 훌쩍이는 들썩임(hover) + 어깨 잔떨림 + 눈물
+          const sob = Math.max(0, Math.sin(this.t * 0.22)) * 1.8;
+          const shake = Math.sin(this.t * 0.9) * 0.7;
+          P.drawPet(x, pet.id, px + shake, py, fi, 1.35, { t: this.t * 0.05, aura: null, badge: false, hover: sob });
+          this.drawTears(x, px, py);
+          this.drawHungryBubble(x, px, py - 46);
+        } else {
+          P.drawPet(x, pet.id, px, py, fi, 1.35, { t: this.t * 0.05, aura: pet.ability, badge: true });
+        }
       } else {
         x.save(); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "24px serif";
         x.fillText(pet.emoji, px, py - 10); x.restore();
       }
     }
   }
+  // 눈가 양쪽에서 또르르 떨어지는 눈물 두 방울 (위상 엇갈려 반복)
+  drawTears(x, cx, py) {
+    x.save();
+    for (let i = 0; i < 2; i++) {
+      const side = i === 0 ? -1 : 1;
+      const ph = (this.t * 0.018 + i * 0.5) % 1; // 0~1 낙하 진행
+      const ty = py - 26 + ph * 18;
+      const alpha = ph < 0.15 ? ph / 0.15 : (1 - ph) * 1.2;
+      x.globalAlpha = Math.max(0, Math.min(1, alpha));
+      x.fillStyle = "#8fd4ff";
+      x.beginPath(); x.ellipse(cx + side * 7, ty, 1.6, 2.4, 0, 0, 6.28); x.fill();
+      x.fillStyle = "rgba(255,255,255,.85)"; x.fillRect(cx + side * 7 - 1, ty - 1, 1.2, 1.2);
+    }
+    x.restore();
+  }
+
   drawHungryBubble(x, cx, cy) {
     const bob = Math.sin(this.t * .12) * 1.5;
     const y = cy + bob;
