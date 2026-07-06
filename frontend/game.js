@@ -1952,11 +1952,11 @@ class LumiaFarm {
       if (P) {
         const fi = P.frameForMotion(pet.moving, pet.anim);
         if (pet.starving) {
-          // 제자리에서 우는 모습: 훌쩍이는 들썩임(hover) + 어깨 잔떨림 + 눈물
-          const sob = Math.max(0, Math.sin(this.t * 0.22)) * 1.8;
-          const shake = Math.sin(this.t * 0.9) * 0.7;
+          // 제자리에서 우는 모습: 몸을 흔들며 훌쩍임(sob) + 눈물 (디자인 핸드오프 수치)
+          const shake = Math.round(Math.sin(this.t * .9) * 1.2);
+          const sob = Math.abs(Math.sin(this.t * .14)) * 2;
           P.drawPet(x, pet.id, px + shake, py, fi, 1.35, { t: this.t * 0.05, aura: null, badge: false, hover: sob });
-          this.drawTears(x, px, py);
+          this.drawTears(x, px + shake, py);
           this.drawHungryBubble(x, px, py - 46);
         } else {
           P.drawPet(x, pet.id, px, py, fi, 1.35, { t: this.t * 0.05, aura: pet.ability, badge: true });
@@ -1967,20 +1967,22 @@ class LumiaFarm {
       }
     }
   }
-  // 눈가 양쪽에서 또르르 떨어지는 눈물 두 방울 (위상 엇갈려 반복)
+  // 눈가 양쪽에서 또르르 떨어지는 눈물 (디자인 핸드오프: 눈 높이가 훌쩍임을 따라감)
   drawTears(x, cx, py) {
-    x.save();
-    for (let i = 0; i < 2; i++) {
-      const side = i === 0 ? -1 : 1;
-      const ph = (this.t * 0.018 + i * 0.5) % 1; // 0~1 낙하 진행
-      const ty = py - 26 + ph * 18;
-      const alpha = ph < 0.15 ? ph / 0.15 : (1 - ph) * 1.2;
-      x.globalAlpha = Math.max(0, Math.min(1, alpha));
-      x.fillStyle = "#8fd4ff";
-      x.beginPath(); x.ellipse(cx + side * 7, ty, 1.6, 2.4, 0, 0, 6.28); x.fill();
-      x.fillStyle = "rgba(255,255,255,.85)"; x.fillRect(cx + side * 7 - 1, ty - 1, 1.2, 1.2);
+    const s = 1.35;
+    const sob = Math.abs(Math.sin(this.t * .14)) * 2;
+    const eyeY = py - 13 * s - sob * s; // 얼굴 눈 높이
+    for (const dx of [-6, 6]) {
+      const drip = (this.t * 0.9 + (dx < 0 ? 0 : 1.6)) % 6; // 0~6 반복 낙하
+      const ty = eyeY + drip * 3.2;
+      const alpha = drip > 5 ? (6 - drip) : 1; // 사라질 때 페이드
+      x.save();
+      x.globalAlpha = 0.9 * alpha;
+      x.fillStyle = "#8fd6ff";
+      x.beginPath(); x.ellipse(cx + dx, ty, 1.8, 2.6, 0, 0, 6.28); x.fill();
+      x.fillStyle = "rgba(255,255,255,.9)"; x.fillRect(cx + dx - 0.6, ty - 1, 1, 1);
+      x.restore();
     }
-    x.restore();
   }
 
   drawHungryBubble(x, cx, cy) {
