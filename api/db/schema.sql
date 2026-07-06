@@ -57,3 +57,93 @@ INSERT OR IGNORE INTO crop_types (name, seed_price, sell_price, grow_seconds, ha
     ('딸기',     30,  80,   900, 1, 1),
     ('호박',     50, 150,  1800, 1, 1),
     ('별빛 과일', 200, 700, 7200, 1, 1);
+
+-- ============================================================
+-- v2 스키마 — 멀티플레이 월드 / 서버 권위 상태 (M2)
+--   월드 = 디스코드 길드(영속). 로컬/단독 플레이는 guild_id='solo:<user_id>'.
+--   정원 = 농장 수(plot_index 0~7). 작물 성장은 타임스탬프 기반(서버리스 호환).
+--   작물/펫/경제 카탈로그는 api/data/gamedata.py (DB에 저장하지 않음).
+-- ============================================================
+
+-- 월드 (길드당 1개)
+CREATE TABLE IF NOT EXISTS worlds (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    guild_id   TEXT    NOT NULL UNIQUE,
+    created_at INTEGER NOT NULL
+);
+
+-- 월드 멤버 = 농장 소유자 (plot_index 영구 배정, 최대 8명)
+CREATE TABLE IF NOT EXISTS world_members (
+    world_id     INTEGER NOT NULL,
+    user_id      TEXT    NOT NULL,
+    plot_index   INTEGER NOT NULL CHECK (plot_index BETWEEN 0 AND 7),
+    display_name TEXT    NOT NULL,
+    land_lv      INTEGER NOT NULL DEFAULT 1,
+    joined_at    INTEGER NOT NULL,
+    PRIMARY KEY (world_id, user_id),
+    UNIQUE (world_id, plot_index),
+    FOREIGN KEY (world_id) REFERENCES worlds(id)
+);
+
+-- 심긴 작물 타일 (플롯 로컬 좌표 r/c 0~9)
+--   성장: elapsed = now - planted_at + boost_secs, ready = elapsed >= grow_secs
+--   재성장 작물 수확 후: regrow_at = now + regrow_secs (regrow_at 도달 시 다시 ready)
+CREATE TABLE IF NOT EXISTS tiles (
+    world_id   INTEGER NOT NULL,
+    plot_index INTEGER NOT NULL,
+    r          INTEGER NOT NULL,
+    c          INTEGER NOT NULL,
+    crop_id    TEXT    NOT NULL,
+    planted_at INTEGER NOT NULL,
+    boost_secs INTEGER NOT NULL DEFAULT 0,
+    regrow_at  INTEGER,
+    PRIMARY KEY (world_id, plot_index, r, c)
+);
+
+CREATE INDEX IF NOT EXISTS idx_tiles_world ON tiles(world_id);
+
+-- 플레이어(유저 전역) — 재화/보관함/도구 상태/알바/화분 운반
+CREATE TABLE IF NOT EXISTS players (
+    user_id        TEXT    PRIMARY KEY,
+    gold           INTEGER NOT NULL DEFAULT 0,
+    luna           INTEGER NOT NULL DEFAULT 0,
+    farm_level     INTEGER NOT NULL DEFAULT 3,
+    storage_lv     INTEGER NOT NULL DEFAULT 1,
+    wcan_uses      INTEGER NOT NULL DEFAULT 5,   -- 물뿌리개 남은 사용 횟수
+    wcan_cd_until  INTEGER NOT NULL DEFAULT 0,   -- 물뿌리개 쿨다운 종료 시각
+    carry          TEXT,                          -- 화분에 담은 작물 JSON
+    alba_plant_lv  INTEGER NOT NULL DEFAULT 0,
+    alba_sell_lv   INTEGER NOT NULL DEFAULT 0,
+    alba_feed      INTEGER NOT NULL DEFAULT 0,   -- 0/1
+    alba_plant_last INTEGER NOT NULL DEFAULT 0,
+    alba_sell_last  INTEGER NOT NULL DEFAULT 0,
+    alba_feed_last  INTEGER NOT NULL DEFAULT 0,
+    created_at     INTEGER NOT NULL
+);
+
+-- 인벤토리/보관함 슬롯 (순서 보존 — 핫바 = inv 0~9)
+CREATE TABLE IF NOT EXISTS inv_slots (
+    user_id   TEXT    NOT NULL,
+    container TEXT    NOT NULL CHECK (container IN ('inv', 'sto')),
+    slot      INTEGER NOT NULL,
+    item_key  TEXT    NOT NULL,
+    qty       INTEGER NOT NULL,
+    PRIMARY KEY (user_id, container, slot)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inv_user ON inv_slots(user_id);
+
+-- 소유 펫 — 배고픔은 lazy 계산(updated_at 시점의 hunger 저장)
+CREATE TABLE IF NOT EXISTS pets (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id         TEXT    NOT NULL,
+    species         TEXT    NOT NULL,
+    custom_name     TEXT,
+    hunger          REAL    NOT NULL DEFAULT 100,
+    satiety_until   INTEGER NOT NULL DEFAULT 0,
+    updated_at      INTEGER NOT NULL,
+    last_ability_at INTEGER NOT NULL DEFAULT 0,
+    created_at      INTEGER NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_pets_user ON pets(user_id);

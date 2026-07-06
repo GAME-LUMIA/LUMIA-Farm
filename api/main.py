@@ -15,7 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from .db.database import init_db, close_db
-from .routes import auth, farm, shop
+from .routes import auth, farm, market, shop, world
 
 load_dotenv()
 
@@ -44,8 +44,10 @@ app.add_middleware(
 
 # API 라우터
 app.include_router(auth.router, prefix="/api")
-app.include_router(farm.router, prefix="/api")
-app.include_router(shop.router, prefix="/api")
+app.include_router(farm.router, prefix="/api")   # v1 (구 9칸 데모 — 프론트 전환 후 제거 예정)
+app.include_router(shop.router, prefix="/api")   # v1
+app.include_router(world.router, prefix="/api")  # v2 멀티 월드 / 서버 권위
+app.include_router(market.router, prefix="/api") # v2 상점/인벤
 
 
 @app.get("/api/health")
