@@ -72,10 +72,13 @@ class LumiaFarm {
     ];
     // 펫 능력 3종. every=발동 주기(초)
     this.PET_ABILITIES = {
-      seed: { label: "씨앗 수집가", icon: "🌱", desc: "가끔 씨앗을 찾아줘요", every: 25 },
-      coin: { label: "행운의 상인", icon: "🪙", desc: "가끔 골드를 벌어와요", every: 30 },
-      harvest: { label: "수확 도우미", icon: "🧺", desc: "다 자란 작물을 대신 수확해요", every: 20 },
+      seed: { label: "씨앗 수집가", icon: "🌱", desc: "등급 티어의 씨앗을 찾아줘요", every: 25 },
+      coin: { label: "행운의 상인", icon: "🪙", desc: "골드를 벌어와요 (등급 높을수록 많이)", every: 30 },
+      harvest: { label: "수확 도우미", icon: "🧺", desc: "등급 티어의 다 자란 작물을 수확해요", every: 20 },
     };
+    // 등급별 상호작용 가능 작물 티어(수확·씨앗 수집)와 골드 획득량 범위
+    this.GRADE_TIERS = { Common: ["T1"], Rare: ["T2", "T3"], Epic: ["T4"], Legendary: ["T5"] };
+    this.GRADE_COIN = { Common: [8, 15], Rare: [20, 35], Epic: [50, 90], Legendary: [120, 200] };
     this.GRADE_COLOR = { Common: "#7fa844", Rare: "#3f9fd6", Epic: "#9a68e0", Legendary: "#f0a52f" };
     this.EGG_PRICE = 120;   // 알 가격(LN)
     this.PET_MAX = 3;       // 최대 장착 펫
@@ -1242,9 +1245,17 @@ class LumiaFarm {
     else if (pet.ability === "seed") { pet.aTimer += ds; if (pet.aTimer >= this.PET_ABILITIES.seed.every) { pet.aTimer = 0; this.petSeed(pet); } }
     else if (pet.ability === "coin") { pet.aTimer += ds; if (pet.aTimer >= this.PET_ABILITIES.coin.every) { pet.aTimer = 0; this.petCoin(pet); } }
   }
+  // 이 펫 등급이 상호작용 가능한 티어 목록 / 티어 라벨(예: "T2·T3")
+  petTiers(pet) { return this.GRADE_TIERS[pet.grade] || ["T1"]; }
+  petTierLabel(pet) { return this.petTiers(pet).join("·"); }
+  // 능력 부가 설명: 수확/씨앗 = 담당 티어, 골드 = 등급별 획득량 범위
+  petAbilitySub(pet) {
+    if (pet.ability === "coin") { const g = this.GRADE_COIN[pet.grade] || [8, 15]; return g[0] + "~" + g[1] + "G"; }
+    return this.petTierLabel(pet) + " 작물";
+  }
   petHarvest(pet) {
-    const T = this.TILE, gx = pet.x / T, gy = pet.y / T;
-    const c = this.crops.find((c) => c.ready && this.inMyPlot(c.gx, c.gy) && Math.abs(c.gx + .5 - gx) < 2.6 && Math.abs(c.gy + .5 - gy) < 2.6);
+    const T = this.TILE, gx = pet.x / T, gy = pet.y / T, ts = this.petTiers(pet);
+    const c = this.crops.find((c) => c.ready && ts.includes((this.CROPINFO[c.crop] || {}).tier) && this.inMyPlot(c.gx, c.gy) && Math.abs(c.gx + .5 - gx) < 2.6 && Math.abs(c.gy + .5 - gy) < 2.6);
     if (!c) return;
     if (this.addItem(this.inv, c.crop, 1)) {
       this.burst(c.gx + .5, c.gy + .5, "#ffe14d", 12);
@@ -1255,7 +1266,9 @@ class LumiaFarm {
     }
   }
   petSeed(pet) {
-    const keys = this.CROP_IDS;
+    const ts = this.petTiers(pet);
+    let keys = this.CROP_IDS.filter((k) => ts.includes((this.CROPINFO[k] || {}).tier));
+    if (!keys.length) keys = this.CROP_IDS;
     const k = keys[Math.floor(Math.random() * keys.length)];
     if (this.addItem(this.inv, k + "_seed", 1)) {
       this.renderHotbar(); this.burst(pet.x / this.TILE, pet.y / this.TILE, "#8fd14f", 8);
@@ -1264,7 +1277,8 @@ class LumiaFarm {
     }
   }
   petCoin(pet) {
-    const g = 15 + Math.floor(Math.random() * 20);
+    const [lo, hi] = this.GRADE_COIN[pet.grade] || [8, 15];
+    const g = lo + Math.floor(Math.random() * (hi - lo + 1));
     this.gold += g; this.renderHud();
     this.burst(pet.x / this.TILE, pet.y / this.TILE, "#f7d271", 8);
     this.petLog({ ...pet, name: this.petName(pet) }, "가 동전을 주웠어요", "+" + g + " G", null, "", "#f7d271");
@@ -1356,7 +1370,7 @@ class LumiaFarm {
       const color = pct > 50 ? "#7fd14f" : pct > 20 ? "#f0b53a" : "#ef4d54";
       const sated = pet.satietyLeft > 0;
       const ab = this.PET_ABILITIES[pet.ability];
-      const status = pet.starving ? "😢 배고파요 · 먹이 필요" : (sated ? "😴 포만감 " + Math.ceil(pet.satietyLeft) + "초 유지" : (ab.icon + " " + ab.label));
+      const status = pet.starving ? "😢 배고파요 · 먹이 필요" : (sated ? "😴 포만감 " + Math.ceil(pet.satietyLeft) + "초 유지" : (ab.icon + " " + ab.label + " · " + this.petAbilitySub(pet)));
       const ring = pet.starving ? "rgba(239,77,84,.85)" : "rgba(200,169,110,.4)";
       const filter = pet.starving ? "filter:grayscale(.6) brightness(.85)" : "";
       let picker = "";
@@ -1421,7 +1435,7 @@ class LumiaFarm {
     const wrap = document.createElement("div"); wrap.className = "petshop";
     const n = this.pets.length, full = n >= this.PET_MAX, poor = this.luna < this.EGG_PRICE, off = full || poor;
     const info = document.createElement("div"); info.className = "pet-info";
-    info.innerHTML = `<span>🐾 보유 펫 <b>${n} / ${this.PET_MAX}</b></span><span class="pet-hint">펫은 내 농장 안을 돌아다니며 도와줘요</span>`;
+    info.innerHTML = `<span>🐾 보유 펫 <b>${n} / ${this.PET_MAX}</b></span><span class="pet-hint">등급별 담당 작물 — 커먼 T1 · 레어 T2·T3 · 에픽 T4 · 레전더리 T5</span>`;
     wrap.appendChild(info);
     const card = document.createElement("div"); card.className = "pet-egg";
     card.innerHTML = `<div class="egg-ic">🥚</div><div class="egg-body"><span class="egg-nm">펫 알</span><span class="egg-sub">부화 시 랜덤 능력 · 씨앗 수집 / 골드 획득 / 자동 수확</span><span class="egg-price">🌾 ${this.fmt(this.EGG_PRICE)}</span></div><button class="btn egg-buy${off ? " off" : ""}"${off ? " disabled" : ""}>${full ? "펫이 가득 찼어요" : poor ? "루나 부족" : "알 구매 · 부화"}</button>`;
@@ -1438,7 +1452,7 @@ class LumiaFarm {
         const r = document.createElement("div"); r.className = "pet-row";
         r.innerHTML = `<span class="pr-em">${this.iconHtml(this.renderPetIcon(pt.id), 26, pt.emoji)}</span>` +
           `<span class="pr-grade" style="background:${this.GRADE_COLOR[pt.grade] || "#7fa844"}">${this.gradeLabel(pt.grade)}</span>` +
-          `<span class="pr-nm">${this.petName(pt)}</span><span class="pr-ab">${a.icon} ${a.label}</span><span class="pr-hun${hun < 20 ? " low" : ""}">🍖 ${hun}%</span>`;
+          `<span class="pr-nm">${this.petName(pt)}</span><span class="pr-ab">${a.icon} ${a.label} · ${this.petAbilitySub(pt)}</span><span class="pr-hun${hun < 20 ? " low" : ""}">🍖 ${hun}%</span>`;
         list.appendChild(r);
       });
       wrap.appendChild(list);
@@ -1452,7 +1466,7 @@ class LumiaFarm {
     this.pets.forEach((pt, i) => {
       const a = this.PET_ABILITIES[pt.ability];
       const row = document.createElement("div"); row.className = "sell-row";
-      row.innerHTML = `<div class="ic">${this.iconHtml(this.renderPetIcon(pt.id), 34, pt.emoji)}</div><div class="info"><span class="nm">[${this.gradeLabel(pt.grade)}] ${this.petName(pt)}</span><span class="sub">${a.icon} ${a.label} · 분양가 🌾 ${this.fmt(price)}</span></div><button class="btn sellbtn">분양</button>`;
+      row.innerHTML = `<div class="ic">${this.iconHtml(this.renderPetIcon(pt.id), 34, pt.emoji)}</div><div class="info"><span class="nm">[${this.gradeLabel(pt.grade)}] ${this.petName(pt)}</span><span class="sub">${a.icon} ${a.label} · ${this.petAbilitySub(pt)} · 분양가 🌾 ${this.fmt(price)}</span></div><button class="btn sellbtn">분양</button>`;
       row.querySelector(".sellbtn").addEventListener("click", () => this.sellPet(i));
       list.appendChild(row);
     });
