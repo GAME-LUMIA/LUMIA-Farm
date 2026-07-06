@@ -566,10 +566,10 @@ class LumiaFarm {
             const active = rc && this.landCellState(this.landLv, rc.r, rc.c) === "active";
             g[y][x] = { t: active ? "soil" : "locked", v: Math.floor(this.rnd(x, y, 7) * 2) };
           } else {
-            // 이웃 농지: 우측 컬럼은 확장용으로 잠금
-            const lockedCols = o.locked || 0;
-            const locked = o.allLocked || x >= px + pw - 1 - lockedCols;
-            g[y][x] = { t: locked ? "locked" : "soil", v: Math.floor(this.rnd(x, y, 7) * 2) };
+            // 이웃 농지: 각자의 땅 업그레이드 단계(landLv) 모양대로 활성 칸만 흙, 나머지는 잠금
+            const rc = this.myLocalRC(px, py, pw, ph, x, y);
+            const active = !o.allLocked && rc && this.landCellState(o.landLv || 1, rc.r, rc.c) === "active";
+            g[y][x] = { t: active ? "soil" : "locked", v: Math.floor(this.rnd(x, y, 7) * 2) };
           }
         }
       }
@@ -594,8 +594,9 @@ class LumiaFarm {
     // 왼쪽 2열 + 오른쪽 2열만 농작지, 가운데 2열은 마켓 광장
     const topY = 2, botY = H - 2 - plotH; // 2, 28
     const plotCols = [0, 1, 4, 5];
-    const topOpts = { 0: { mine: true }, 1: { locked: 2 }, 4: {}, 5: { locked: 1 } };
-    const botOpts = { 0: {}, 1: { locked: 1 }, 4: { locked: 2 }, 5: {} };
+    // 이웃 농지도 땅 업그레이드 규칙과 같은 모양이 되도록 각자 landLv 부여 (10 미만 = 좌블록만)
+    const topOpts = { 0: { mine: true }, 1: { landLv: 6 }, 4: { landLv: 13 }, 5: { landLv: 9 } };
+    const botOpts = { 0: { landLv: 11 }, 1: { landLv: 4 }, 4: { landLv: 16 }, 5: { landLv: 8 } };
     // 농지 주인 이름 (위/아래 줄). 0번 위 = 나(this.name)
     const topNames = { 0: this.name, 1: "Mina", 4: "Aria", 5: "Jun" };
     const botNames = { 0: "Luna", 1: "Pico", 4: "Sora", 5: "Hana" };
