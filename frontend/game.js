@@ -12,9 +12,9 @@ class LumiaFarm {
     this.TILE = 40;
     this.VW = 800;
     this.VH = 600;
-    // 데모 가속 배수 — 실서버 영속화 시 제거하고 서버 타임스탬프 기반으로 계산
-    this.GROW_SCALE = 40;   // 작물 성장 가속
-    this.HUNGER_DEMO = 40;  // 펫 배고픔 소모 가속
+    // 시간 배속 — 1 = 실시간(디자인 스펙 그대로). 데모 관찰용으로만 임시 상향.
+    this.GROW_SCALE = 1;    // 작물 성장 배속
+    this.HUNGER_DEMO = 1;   // 펫 배고픔 소모 배속
 
     // 런타임 상태
     this.name = "Kyle";
@@ -56,7 +56,7 @@ class LumiaFarm {
     this.SHOPMETA = {
       seed: { emoji: "🌱", label: "씨앗 상점", color: "#5fae3a", sub: "심을 씨앗을 골라보세요", layout: "buy" },
       petbuy: { emoji: "🐣", label: "펫 구매", color: "#e0863a", sub: "알을 부화해 농장 친구를 만나요", layout: "petbuy" },
-      sell: { emoji: "🧺", label: "작물 판매", color: "#c98a3a", sub: "수확물을 골드로 바꾸세요", layout: "sell" },
+      sell: { emoji: "🧺", label: "작물 판매", color: "#c98a3a", sub: "수확물을 루나로 바꾸세요", layout: "sell" },
       petsell: { emoji: "🐾", label: "펫 판매", color: "#d65f7a", sub: "분양 보낼 펫을 선택", layout: "petsell" },
       exch: { emoji: "💱", label: "환전소", color: "#3fb3c9", sub: "골드 ↔ 루나 환전", layout: "exch" },
       inventory: { emoji: "🎒", label: "인벤토리", color: "#7a8b3a", sub: "들고 다니는 아이템", layout: "inv" },
@@ -93,7 +93,7 @@ class LumiaFarm {
     // 인벤토리 모달 드래그/호버 상태
     this.invDrag = null; this.invOver = null;
 
-    // 도구(골드 구매) + 물뿌리개 사용/쿨다운 + 화분 운반
+    // 도구(루나 구매) + 물뿌리개 사용/쿨다운 + 화분 운반
     this.TOOLPRICE = { shovel: 80, can: 120, pot: 15 };
     this.canUses = 5;       // 물뿌리개 남은 사용(5회)
     this.canCd = 0;         // 물뿌리개 재사용 대기(초)
@@ -252,10 +252,10 @@ class LumiaFarm {
     const info = {};
     if (C) {
       C.CROPS.forEach((c) => {
-        const tp = tierPrice[c.tier] || [10, 18]; const luna = c.id === "goldenapple";
+        const tp = tierPrice[c.tier] || [10, 18]; const golden = c.id === "goldenapple";
         info[c.id] = {
           name: c.name, emoji: c.emoji, tier: c.tier,
-          seed: luna ? 45 : tp[0], sell: luna ? 90 : tp[1], luna,
+          seed: golden ? 45 : tp[0], sell: golden ? 90 : tp[1], luna: true, // 거래는 전부 루나(LN)
           grow: c.grow, secs: this.parseSpec(c.grow),
           regrow: c.regrow || null, regrowSecs: c.regrow ? this.parseSpec(c.regrow) : 0,
         };
@@ -263,7 +263,7 @@ class LumiaFarm {
       this.FEEDMAP = {}; C.FEED.forEach((f) => { this.FEEDMAP[f.id] = { hunger: f.hunger, satiety: f.satiety }; });
       this.GRADE_DRAIN = {}; C.HUNGER.forEach((h) => { this.GRADE_DRAIN[h.key] = h.secs; });
     } else {
-      info.carrot = { name: "당근", emoji: "🥕", tier: "T1", seed: 10, sell: 18, luna: false, grow: "5분", secs: 300, regrow: null, regrowSecs: 0 };
+      info.carrot = { name: "당근", emoji: "🥕", tier: "T1", seed: 10, sell: 18, luna: true, grow: "5분", secs: 300, regrow: null, regrowSecs: 0 };
       this.FEEDMAP = { carrot: { hunger: [80, 20, 0, 0], satiety: [10, 5, 0, 0] } };
       this.GRADE_DRAIN = { Common: 1800, Rare: 3600, Epic: 7200, Legendary: 10800 };
     }
@@ -1092,7 +1092,7 @@ class LumiaFarm {
       const c = this.CROPINFO[k], n = this.countKey(this.inv, k), stored = this.countKey(this.sto, k);
       total += n * c.sell;
       const row = document.createElement("div"); row.className = "sell-row"; row.style.opacity = n <= 0 ? .45 : 1;
-      const sub = `보유 ${n}개${stored > 0 ? ` · 보관함 ${stored}개` : ""} · 개당 🪙 ${this.fmt(c.sell)}`;
+      const sub = `보유 ${n}개${stored > 0 ? ` · 보관함 ${stored}개` : ""} · 개당 🌾 ${this.fmt(c.sell)}`;
       row.innerHTML = `<div class="ic">${this.iconHtml(c.iconCrop, 36, c.emoji)}</div><div class="info"><span class="nm">${c.name}</span><span class="sub">${sub}</span></div><button class="btn one"${n <= 0 ? " disabled" : ""}>1개</button><button class="btn sellbtn"${n <= 0 ? " disabled" : ""}>판매</button>`;
       row.querySelector(".one").addEventListener("click", () => this.sellCrop(k, false));
       row.querySelector(".sellbtn").addEventListener("click", () => this.sellCrop(k, true));
@@ -1100,7 +1100,7 @@ class LumiaFarm {
     });
     body.appendChild(list);
     const bar = document.createElement("div"); bar.className = "sell-total";
-    bar.innerHTML = `<span class="lbl">전체 예상 수익</span><span class="amt">🪙 ${this.fmt(total)}</span><button class="btn allbtn"${total <= 0 ? " disabled" : ""}>전체 판매</button>`;
+    bar.innerHTML = `<span class="lbl">전체 예상 수익</span><span class="amt">🌾 ${this.fmt(total)}</span><button class="btn allbtn"${total <= 0 ? " disabled" : ""}>전체 판매</button>`;
     bar.querySelector(".allbtn").addEventListener("click", () => this.sellAll());
     body.appendChild(bar);
   }
@@ -1483,7 +1483,7 @@ class LumiaFarm {
   buyTool(id) {
     // 삽/물뿌리개는 1회만 구매(영구 보유, 소모되지 않음)
     if (id !== "pot" && this.toolOwned(id) >= 1) { this.flash("이미 보유 중이에요", false); return; }
-    if (this.buy(this.TOOLPRICE[id], "gold", this.TOOLINFO[id].name)) {
+    if (this.buy(this.TOOLPRICE[id], "luna", this.TOOLINFO[id].name)) {
       if (!this.addItem(this.inv, "tool_" + id, 1)) this.flash("인벤토리가 가득 찼어요", false);
       this.renderHotbar(); this.renderShop();
     }
@@ -1493,11 +1493,11 @@ class LumiaFarm {
     if (kind === "feed") {
       if (a.hired) { this.flash("이미 고용 중", false); return; }
       if (this.farmLevel < this.FEED_UNLOCK_LV) { this.flash("농장 Lv " + this.FEED_UNLOCK_LV + " 이상 필요", false); return; }
-      if (this.buy(this.albaCost("feed"), "gold", "펫 먹이 알바")) { a.hired = true; this.renderShop(); }
+      if (this.buy(this.albaCost("feed"), "luna", "펫 먹이 알바")) { a.hired = true; this.renderShop(); }
       return;
     }
     if (a.lv >= a.max) { this.flash("이미 최대 레벨", false); return; }
-    if (this.buy(this.albaCost(kind), "gold", kind === "plant" ? "심기 알바" : "판매 알바")) { a.lv++; this.renderShop(); }
+    if (this.buy(this.albaCost(kind), "luna", kind === "plant" ? "심기 알바" : "판매 알바")) { a.lv++; this.renderShop(); }
   }
   albaPlant() {
     const p = this.myPlot; if (!p) return;
@@ -1518,7 +1518,7 @@ class LumiaFarm {
   albaSell() {
     let gain = 0;
     Object.keys(this.CROPINFO).forEach((k) => { const h = this.countKey(this.inv, k); if (h > 0) { gain += h * this.CROPINFO[k].sell; this.removeKey(this.inv, k, h); } });
-    if (gain > 0) { this.gold += gain; this.renderHud(); this.renderHotbar(); }
+    if (gain > 0) { this.luna += gain; this.renderHud(); this.renderHotbar(); }
   }
   albaFeed() {
     // 배고픔 20% 미만 펫에게 인벤의 효과 있는 먹이를 자동 급여
@@ -1537,10 +1537,10 @@ class LumiaFarm {
     const tools = document.createElement("div"); tools.className = "upg-list";
     [["shovel", "1회 구매·영구 보유"], ["can", "1회 구매·영구 · 5회 후 5분 쿨다운"], ["pot", "일회용·개수 제한 없음"]].forEach(([id, note]) => {
       const t = this.TOOLINFO[id], have = this.toolOwned(id), single = id !== "pot";
-      const owned = single && have >= 1, poor = this.gold < this.TOOLPRICE[id], off = owned || poor;
+      const owned = single && have >= 1, poor = this.luna < this.TOOLPRICE[id], off = owned || poor;
       const row = document.createElement("div"); row.className = "upg-row";
-      const label = owned ? "보유중" : poor ? "골드 부족" : "구매";
-      row.innerHTML = `<div class="ic">${t.emoji}</div><div class="info"><div class="top"><span class="nm">${t.name}</span><span class="lv">보유 ${have}</span></div><span class="sub">${t.desc} · ${note}</span>${owned ? "" : `<span class="price" style="color:#c08a2a">🪙 ${this.fmt(this.TOOLPRICE[id])}</span>`}</div><button class="btn do${off ? " off" : ""}"${off ? " disabled" : ""}>${label}</button>`;
+      const label = owned ? "보유중" : poor ? "루나 부족" : "구매";
+      row.innerHTML = `<div class="ic">${t.emoji}</div><div class="info"><div class="top"><span class="nm">${t.name}</span><span class="lv">보유 ${have}</span></div><span class="sub">${t.desc} · ${note}</span>${owned ? "" : `<span class="price" style="color:#3f9fc2">🌾 ${this.fmt(this.TOOLPRICE[id])}</span>`}</div><button class="btn do${off ? " off" : ""}"${off ? " disabled" : ""}>${label}</button>`;
       if (!off) row.querySelector(".do").addEventListener("click", () => this.buyTool(id));
       tools.appendChild(row);
     });
@@ -1554,16 +1554,16 @@ class LumiaFarm {
       let lvText, cost, off, label, sub;
       if (kind === "feed") {
         const locked = this.farmLevel < this.FEED_UNLOCK_LV;
-        cost = this.albaCost("feed"); const poor = this.gold < cost;
+        cost = this.albaCost("feed"); const poor = this.luna < cost;
         lvText = a.hired ? "고용중" : locked ? "🔒 Lv" + this.FEED_UNLOCK_LV : "고용 가능";
-        off = a.hired || locked || poor; label = a.hired ? "고용중" : locked ? "Lv" + this.FEED_UNLOCK_LV + " 필요" : poor ? "골드 부족" : "고용";
+        off = a.hired || locked || poor; label = a.hired ? "고용중" : locked ? "Lv" + this.FEED_UNLOCK_LV + " 필요" : poor ? "루나 부족" : "고용";
         sub = mkDesc(a);
       } else {
-        const maxed = a.lv >= a.max; cost = this.albaCost(kind); const poor = this.gold < cost;
+        const maxed = a.lv >= a.max; cost = this.albaCost(kind); const poor = this.luna < cost;
         lvText = "Lv " + a.lv + " / " + a.max; off = maxed || poor;
-        label = maxed ? "최대" : poor ? "골드 부족" : (a.lv === 0 ? "고용" : "강화"); sub = mkDesc(a);
+        label = maxed ? "최대" : poor ? "루나 부족" : (a.lv === 0 ? "고용" : "강화"); sub = mkDesc(a);
       }
-      row.innerHTML = `<div class="ic">${emoji}</div><div class="info"><div class="top"><span class="nm">${name}</span><span class="lv">${lvText}</span></div><span class="sub">${sub}</span>${off && (kind === "feed" ? this.alba.feed.hired : this.alba[kind].lv >= this.alba[kind].max) ? "" : `<span class="price" style="color:#c08a2a">🪙 ${this.fmt(cost)}</span>`}</div><button class="btn do${off ? " off" : ""}"${off ? " disabled" : ""}>${label}</button>`;
+      row.innerHTML = `<div class="ic">${emoji}</div><div class="info"><div class="top"><span class="nm">${name}</span><span class="lv">${lvText}</span></div><span class="sub">${sub}</span>${off && (kind === "feed" ? this.alba.feed.hired : this.alba[kind].lv >= this.alba[kind].max) ? "" : `<span class="price" style="color:#3f9fc2">🌾 ${this.fmt(cost)}</span>`}</div><button class="btn do${off ? " off" : ""}"${off ? " disabled" : ""}>${label}</button>`;
       if (!off) row.querySelector(".do").addEventListener("click", () => this.hireAlba(kind));
       albas.appendChild(row);
     };
@@ -1604,7 +1604,7 @@ class LumiaFarm {
     let facts = "";
     if (cropKey) {
       facts += `<span>🌱 ${c.regrow ? "♻ 재성장 " + c.regrow : "단일 수확"}</span>`;
-      facts += `<span>🪙 ${this.fmt(info.cat === "seed" ? c.seed || 0 : c.sell || 0)}</span>`;
+      facts += `<span>🌾 ${this.fmt(info.cat === "seed" ? c.seed || 0 : c.sell || 0)}</span>`;
       if (info.cat === "crop" && this.FEEDMAP[sl.key]) facts += `<span style="color:#f0a84a">🍖 먹이 가능</span>`;
     }
     facts += `<span style="color:${isHot ? "#7fd14f" : "#c98a6a"};font-weight:700">${isHot ? "핫바 " + hotKey + "번" : "핫바 밖"}</span>`;
@@ -1736,17 +1736,17 @@ class LumiaFarm {
     const n = all ? have : 1;
     this.removeKey(this.inv, key, n);
     const gain = this.CROPINFO[key].sell * n;
-    this.gold += gain;
+    this.luna += gain;
     this.renderHud(); this.renderHotbar(); this.renderShop();
-    this.flash("+" + this.fmt(gain) + " G");
+    this.flash("+" + this.fmt(gain) + " LN");
   }
   sellAll() {
     let gain = 0;
     Object.keys(this.CROPINFO).forEach((k) => { const have = this.countKey(this.inv, k); if (have > 0) { gain += have * this.CROPINFO[k].sell; this.removeKey(this.inv, k, have); } });
     if (gain <= 0) { this.flash("판매할 작물이 없어요", false); return; }
-    this.gold += gain;
+    this.luna += gain;
     this.renderHud(); this.renderHotbar(); this.renderShop();
-    this.flash("전체 판매 +" + this.fmt(gain) + " G");
+    this.flash("전체 판매 +" + this.fmt(gain) + " LN");
   }
 
   exchSrcMax() { return this.exchDir === "g2l" ? this.gold : this.luna; }
