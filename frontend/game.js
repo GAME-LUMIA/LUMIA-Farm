@@ -81,6 +81,8 @@ class LumiaFarm {
     this.PET_MAX = 3;       // 최대 장착 펫
     this.pets = [];         // 소유/배회 펫
     this.petNames = this.loadPetNames(); // 커스텀 이름(슬롯 3, localStorage 유지)
+    // 펫 HUD 접기/펼치기 (localStorage 유지) — 펫 창이 뒤 농작물을 가리는 것 방지
+    this.petHudOpen = (() => { try { return localStorage.getItem("lumia_pethud_open") !== "0"; } catch (e) { return true; } })();
     this.renameIdx = null;  // 이름 변경 중인 펫 인덱스
     this.feedPickIdx = null;// 먹이 피커가 열린 펫 인덱스
     this._petIconCache = {};
@@ -1340,11 +1342,15 @@ class LumiaFarm {
   renderPetHud(force) {
     const el = this.hud.petHud; if (!el) return;
     if (!force && this.feedPickIdx != null) return; // 피커 열려 있는 동안 자동 재렌더로 클릭이 끊기지 않게
-    const sig = this.pets.map((p, i) => [p.id, this.petName(p), Math.round(p.hunger), p.starving, Math.ceil(p.satietyLeft), this.feedPickIdx === i].join(":")).join("|");
+    const sig = this.petHudOpen + "#" + this.pets.map((p, i) => [p.id, this.petName(p), Math.round(p.hunger), p.starving, Math.ceil(p.satietyLeft), this.feedPickIdx === i].join(":")).join("|");
     if (!force && sig === this._petHudSig) return;
     this._petHudSig = sig;
-    let html = `<span class="ph-title">장착한 펫 ${this.pets.length}/${this.PET_MAX}</span>`;
-    this.pets.forEach((pet, i) => {
+    // 헤더(항상 표시): 제목 + 접기/펼치기 토글. 접으면 카드 전체 숨김 → 뒤 농작물 안 가림
+    const starvingAny = this.pets.some((p) => p.starving);
+    let html = `<button class="ph-head${this.petHudOpen ? "" : " closed"}" id="phToggle" title="${this.petHudOpen ? "펫 목록 접기" : "펫 목록 펼치기"}">` +
+      `<span class="ph-title">🐾 펫 ${this.pets.length}/${this.PET_MAX}${!this.petHudOpen && starvingAny ? " <b class='ph-alert'>😢</b>" : ""}</span>` +
+      `<span class="ph-arrow">${this.petHudOpen ? "▾" : "▸"}</span></button>`;
+    if (this.petHudOpen) this.pets.forEach((pet, i) => {
       const pct = Math.max(0, Math.min(100, Math.round(pet.hunger)));
       const color = pct > 50 ? "#7fd14f" : pct > 20 ? "#f0b53a" : "#ef4d54";
       const sated = pet.satietyLeft > 0;
@@ -1386,6 +1392,14 @@ class LumiaFarm {
     });
     el.innerHTML = html;
     // 이벤트 바인딩
+    const tg = el.querySelector("#phToggle");
+    if (tg) tg.addEventListener("click", (e) => {
+      e.stopPropagation();
+      this.petHudOpen = !this.petHudOpen;
+      if (!this.petHudOpen) this.feedPickIdx = null;
+      try { localStorage.setItem("lumia_pethud_open", this.petHudOpen ? "1" : "0"); } catch (_) { }
+      this.renderPetHud(true);
+    });
     el.querySelectorAll(".pc-rename").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); this.openRename(+b.dataset.pet); }));
     el.querySelectorAll(".pc-feed").forEach((b) => b.addEventListener("click", (e) => {
       e.stopPropagation();
