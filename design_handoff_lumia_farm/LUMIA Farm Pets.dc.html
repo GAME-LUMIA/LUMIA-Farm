@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Jua&amp;family=Do+Hyeon&amp;family=Press+Start+2P&amp;family=Noto+Sans+KR:wght@400;500;700&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+  canvas { image-rendering:pixelated; display:block; }
+</style>
+<script src="./pets.js"></script>
+</helmet>
+
+<!-- ============ FRAME 1 — PET TYPES ============ -->
+<div style="position:absolute; left:40px; top:40px; width:1500px; font-family:'Jua',sans-serif;">
+  <div data-drags-parent="1" style="display:flex; align-items:baseline; gap:12px; margin-bottom:16px; cursor:grab; flex-wrap:wrap;">
+    <span style="font-family:'Press Start 2P'; font-size:11px; color:#7a5026; background:#f3e6cf; padding:8px 10px; border-radius:6px; box-shadow:inset 0 0 0 1.5px #c9a266;">PETS</span>
+    <span style="font-size:24px; color:#3f4d22;">펫 종류 · 9종 스프라이트</span>
+    <span style="font-size:14px; color:#8a9a5e;">부화 등급 확률 — 커먼 60% · 레어 28% · 에픽 10% · 레전더리 2%</span>
+  </div>
+
+  <!-- rarity distribution bar -->
+  <div style="display:flex; height:14px; border-radius:7px; overflow:hidden; margin-bottom:20px; box-shadow:inset 0 0 0 1.5px rgba(0,0,0,.06);">
+    <sc-for list="{{ gradeBar }}" as="g" hint-placeholder-count="4">
+      <div style="width:{{ g.pct }}; background:{{ g.color }}; display:flex; align-items:center; justify-content:center;">
+        <span style="font-family:'Press Start 2P'; font-size:7px; color:rgba(255,255,255,.92);">{{ g.short }}</span>
+      </div>
+    </sc-for>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:20px;">
+    <sc-for list="{{ pets }}" as="p" hint-placeholder-count="9">
+      <div style="position:relative; background:#ffffff; border-radius:16px; box-shadow:0 2px 5px rgba(60,50,30,.08), inset 0 0 0 1.5px #eee3d0; overflow:hidden;">
+        <!-- header strip in grade color -->
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 13px; background:{{ p.gradeSoft }};">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-family:'Press Start 2P'; font-size:8px; color:#fff; background:{{ p.gradeColor }}; padding:5px 7px; border-radius:5px; letter-spacing:.5px;">{{ p.gradeLabel }}</span>
+            <span style="font-size:20px; color:#3f4322;">{{ p.name }}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:5px; font-family:'Press Start 2P'; font-size:9px; color:{{ p.gradeText }};">
+            <span style="font-size:11px; font-family:'Noto Sans KR';">부화</span>{{ p.prob }}
+          </div>
+        </div>
+        <!-- body: sprite + info -->
+        <div style="display:flex; gap:12px; padding:14px;">
+          <div style="flex-shrink:0; width:150px; height:132px; border-radius:12px; background:{{ p.stageBg }}; box-shadow:inset 0 0 0 1.5px rgba(90,70,40,.10); display:flex; align-items:center; justify-content:center;">
+            <canvas ref="{{ p.ref }}" width="150" height="132"></canvas>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:9px; min-width:0; flex:1; font-family:'Noto Sans KR';">
+            <span style="font-size:13px; color:#6a6250; line-height:1.5; word-break:keep-all;">{{ p.concept }}</span>
+            <div style="display:flex; align-items:center; gap:7px;">
+              <span style="font-size:11px; color:#a89a80; font-weight:700;">대표색</span>
+              <sc-for list="{{ p.swatches }}" as="sw" hint-placeholder-count="2">
+                <span style="display:inline-flex; align-items:center; gap:4px;">
+                  <span style="width:16px; height:16px; border-radius:5px; background:{{ sw.hex }}; box-shadow:inset 0 0 0 1px rgba(0,0,0,.12);"></span>
+                  <span style="font-family:'Press Start 2P'; font-size:6.5px; color:#9a8e78;">{{ sw.hex }}</span>
+                </span>
+              </sc-for>
+            </div>
+            <div style="margin-top:auto; display:flex; align-items:center; gap:7px; padding:7px 9px; border-radius:9px; background:{{ p.abilitySoft }};">
+              <span style="font-size:15px;">{{ p.abilityIcon }}</span>
+              <div style="display:flex; flex-direction:column; line-height:1.25;">
+                <span style="font-size:12px; font-weight:700; color:{{ p.abilityColor }};">{{ p.abilityName }}</span>
+                <span style="font-size:10px; color:#9a8e78;">부화 시 랜덤 능력</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+
+<!-- ============ FRAME 2 — ABILITIES ============ -->
+<div style="position:absolute; left:40px; top:1080px; width:1500px; font-family:'Jua',sans-serif;">
+  <div data-drags-parent="1" style="display:flex; align-items:baseline; gap:12px; margin-bottom:16px; cursor:grab;">
+    <span style="font-family:'Press Start 2P'; font-size:11px; color:#4a6b1e; background:#e3f0c8; padding:8px 10px; border-radius:6px; box-shadow:inset 0 0 0 1.5px #a7c266;">SKILL</span>
+    <span style="font-size:24px; color:#3f4d22;">펫 능력 · 3종</span>
+    <span style="font-size:14px; color:#8a9a5e;">종류와 무관하게 부화 시 랜덤 부여 · 머리 위 뱃지 + 발동 시 아우라</span>
+  </div>
+  <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:20px;">
+    <sc-for list="{{ abilities }}" as="a" hint-placeholder-count="3">
+      <div style="background:#fff; border-radius:16px; box-shadow:0 2px 5px rgba(60,50,30,.08), inset 0 0 0 1.5px #eee3d0; padding:20px; display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <div style="width:64px; height:64px; flex-shrink:0; border-radius:14px; background:{{ a.soft }}; box-shadow:inset 0 0 0 1.5px rgba(90,70,40,.12); display:flex; align-items:center; justify-content:center;">
+            <canvas ref="{{ a.ref }}" width="64" height="64"></canvas>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:5px;">
+            <span style="font-size:21px; color:#3f4322;">{{ a.name }}</span>
+            <span style="display:inline-flex; align-items:center; gap:5px; align-self:flex-start; font-family:'Press Start 2P'; font-size:8px; color:#fff; background:{{ a.color }}; padding:5px 8px; border-radius:5px;">🕒 {{ a.period }}</span>
+          </div>
+        </div>
+        <span style="font-family:'Noto Sans KR'; font-size:14px; color:#6a6250; line-height:1.55; word-break:keep-all;">{{ a.effect }}</span>
+        <div style="display:flex; align-items:center; gap:7px; padding:9px 11px; border-radius:10px; background:#f7f5ee; font-family:'Noto Sans KR';">
+          <span style="font-size:11px; color:#a89a80; font-weight:700;">시각 표식</span>
+          <span style="font-size:12px; color:#5a5240;">{{ a.aura }}</span>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+</div>
+
+<!-- ============ FRAME 3 — SHARED-PALETTE SPRITE SHEET ============ -->
+<div style="position:absolute; left:40px; top:1540px; width:1500px; font-family:'Jua',sans-serif;">
+  <div data-drags-parent="1" style="display:flex; align-items:baseline; gap:12px; margin-bottom:16px; cursor:grab;">
+    <span style="font-family:'Press Start 2P'; font-size:11px; color:#7a4a86; background:#efe0f5; padding:8px 10px; border-radius:6px; box-shadow:inset 0 0 0 1.5px #c9a2d6;">SHEET</span>
+    <span style="font-size:24px; color:#3f4d22;">팔레트 공유 스프라이트 시트</span>
+    <span style="font-size:14px; color:#8a9a5e;">각 펫 idle 2프레임 + walk 4프레임 · 40×40 타일 기준</span>
+  </div>
+  <div style="background:#fff; border-radius:16px; box-shadow:0 2px 5px rgba(60,50,30,.08), inset 0 0 0 1.5px #eee3d0; padding:22px;">
+    <canvas ref="{{ sheetRef }}" width="1400" height="640"></canvas>
+  </div>
+</div>
+
+<!-- ============ FRAME 4 — IN-GAME MOCKUP ============ -->
+<div style="position:absolute; left:40px; top:2300px; width:1500px; font-family:'Jua',sans-serif;">
+  <div data-drags-parent="1" style="display:flex; align-items:baseline; gap:12px; margin-bottom:16px; cursor:grab;">
+    <span style="font-family:'Press Start 2P'; font-size:11px; color:#2d6b4e; background:#d6f0e0; padding:8px 10px; border-radius:6px; box-shadow:inset 0 0 0 1.5px #8fcfa8;">MOCK</span>
+    <span style="font-size:24px; color:#3f4d22;">배경 위 목업 — 펫이 플레이어를 따라다녀요</span>
+    <span style="font-size:14px; color:#8a9a5e;">탑다운 농장에 펫 3마리 동행 · 능력 아우라 발동 중</span>
+  </div>
+  <div style="border-radius:16px; overflow:hidden; box-shadow:0 8px 24px -8px rgba(60,50,30,.35), inset 0 0 0 3px #aebf73;">
+    <canvas ref="{{ mockRef }}" width="1436" height="440"></canvas>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1580,&quot;height&quot;:2800}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.ready = false;
+    this.cardRefs = [];
+    this.abilityRefs = [];
+    this.sheetRef = React.createRef();
+    this.mockRef = React.createRef();
+  }
+
+  componentDidMount(){
+    this.t = 0;
+    const start = () => {
+      const P = window.LumiaPets;
+      if (!P){ this._to = setTimeout(start, 60); return; }
+      this.P = P;
+      this.buildMockWorld();
+      this.ready = true;
+      this.forceUpdate();               // re-render so refs bind with data
+      this.last = performance.now();
+      const loop = (now) => {
+        this.t += Math.min(50, now - this.last) / 1000;
+        this.last = now;
+        this.drawAll();
+        this.raf = requestAnimationFrame(loop);
+      };
+      this.raf = requestAnimationFrame(loop);
+    };
+    start();
+  }
+  componentWillUnmount(){ cancelAnimationFrame(this.raf); clearTimeout(this._to); }
+
+  // ---- mock world (a little farm scene) ----
+  buildMockWorld(){
+    const rnd=(a,b)=>{ const n=Math.sin(a*127.1+b*311.7)*43758.5453; return n-Math.floor(n); };
+    this.grassDots=[]; for(let i=0;i<520;i++) this.grassDots.push([rnd(i,1)*1436, rnd(i,2)*440, rnd(i,3)]);
+    this.mockCrops=[]; // soil patch crops
+    const cropCols=['#ff8a3d','#f2d877','#ef3d54','#ff9326'];
+    for(let r=0;r<3;r++) for(let c=0;c<5;c++){ if(rnd(r,c+9)<0.8) this.mockCrops.push({x:150+c*46, y:150+r*46, col:cropCols[Math.floor(rnd(r,c)*4)], ready:rnd(c,r)>0.5, sway:rnd(r,c)*6.28}); }
+    // follower pets (id, ability, trail phase)
+    this.followers=[
+      {id:'lumi',     ability:'harvest'},
+      {id:'fox',      ability:'coin'},
+      {id:'chick',    ability:'seed'},
+    ];
+  }
+
+  drawAll(){
+    const P=this.P, t=this.t;
+    // pet cards — walking loop
+    this.cardRefs.forEach((ref,i)=>{
+      const cv=ref&&ref.current; if(!cv) return;
+      const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+      const pet=P.PETS[i];
+      const fi=P.frameForMotion(true, t*3.4 + i);
+      P.drawPet(ctx, pet.id, cv.width/2, cv.height-16, fi, 3.1, {t:t+i, aura:pet.ability, badge:true});
+    });
+    // ability icons — gentle pulse
+    this.abilityRefs.forEach((ref,i)=>{
+      const cv=ref&&ref.current; if(!cv) return;
+      const ctx=cv.getContext('2d'); ctx.clearRect(0,0,cv.width,cv.height);
+      const s=2.4 + Math.sin(t*2+i)*0.12;
+      P.drawAbilityIcon(ctx, P.ABILITIES[i].id, 32, 34, s);
+    });
+    // sprite sheet
+    if(this.sheetRef.current) this.drawSheet(this.sheetRef.current, t);
+    // mockup
+    if(this.mockRef.current) this.drawMock(this.mockRef.current, t);
+  }
+
+  drawSheet(cv, t){
+    const P=this.P, ctx=cv.getContext('2d'); ctx.imageSmoothingEnabled=false;
+    ctx.clearRect(0,0,cv.width,cv.height);
+    const cols=[['idle',0],['idle',1],['walk',2],['walk',3],['walk',4],['walk',5]];
+    const labels=['idle','idle','walk','walk','walk','walk'];
+    const rowH=64, top=44, left=150, cellW=190, scale=2.0;
+    // column headers
+    ctx.font="700 13px 'Noto Sans KR'"; ctx.textAlign='center'; ctx.fillStyle='#a89a80';
+    cols.forEach((c,ci)=>{ ctx.fillText(ci<2?('idle '+(ci+1)):('walk '+(ci-1)), left+ci*cellW+cellW/2, 26); });
+    ctx.textAlign='left';
+    P.PETS.forEach((pet,ri)=>{
+      const y=top+ri*rowH;
+      // row bg zebra
+      ctx.fillStyle= ri%2? '#faf7f0':'#f3f6e9';
+      ctx.fillRect(0, y-2, cv.width, rowH-6);
+      // name
+      ctx.font="16px 'Jua'"; ctx.fillStyle='#3f4322'; ctx.textAlign='left';
+      ctx.fillText(pet.name, 18, y+rowH/2);
+      ctx.font="700 9px 'Press Start 2P'"; ctx.fillStyle=P.GRADES[pet.grade].color;
+      ctx.fillText(P.GRADES[pet.grade].label, 18, y+rowH/2+18);
+      // frames
+      cols.forEach((c,ci)=>{
+        const cx=left+ci*cellW+cellW/2, fy=y+rowH-14;
+        P.drawPet(ctx, pet.id, cx, fy, c[1], scale, {t:t+ri*0.3, shadow:true});
+      });
+    });
+    ctx.textAlign='left';
+  }
+
+  drawMock(cv, t){
+    const P=this.P, ctx=cv.getContext('2d'), W=cv.width, H=cv.height;
+    ctx.imageSmoothingEnabled=false;
+    // grass base
+    ctx.fillStyle='#7fc043'; ctx.fillRect(0,0,W,H);
+    for(const [x,y,r] of this.grassDots){ ctx.fillStyle = r<.4?'#6fb23a':(r<.7?'#8ad055':'#5ba233'); ctx.fillRect(x|0,y|0,4,4); }
+    // dirt path (horizontal)
+    ctx.fillStyle='#b08a5e'; ctx.fillRect(0,300,W,70);
+    for(let i=0;i<260;i++){ const x=(i*57)%W, y=300+(Math.sin(i)*0.5+0.5)*66; ctx.fillStyle=i%3?'#c19a6c':'#9a7850'; ctx.fillRect(x|0,y|0,4,4); }
+    ctx.fillStyle='rgba(255,244,221,.35)'; for(let x=20;x<W;x+=54){ ctx.fillRect(x,332,26,4); }
+    // fenced soil plot (left)
+    ctx.fillStyle='#6f4220'; ctx.fillRect(120,120,250,160);
+    for(let ry=0;ry<160;ry+=8){ ctx.fillStyle=(ry/8)%2?'#824e28':'#5e371b'; ctx.fillRect(120,120+ry,250,8); }
+    // crops
+    for(const c of this.mockCrops){
+      const sway=Math.sin(t*2+c.sway)*1.5;
+      ctx.fillStyle='rgba(40,22,8,.3)'; ctx.beginPath(); ctx.ellipse(c.x,c.y+9,7,3,0,0,6.28); ctx.fill();
+      ctx.fillStyle='#4f9a32'; ctx.fillRect(c.x-2+sway,c.y-4,4,10);
+      ctx.fillStyle=c.col; ctx.fillRect(c.x-4+sway,c.y-8,8,7);
+      if(c.ready){ const gl=0.5+0.5*Math.sin(t*3+c.sway); ctx.fillStyle=`rgba(255,232,120,${.2+gl*.2})`; ctx.fillRect(c.x-7+sway,c.y-12,14,14); }
+    }
+    // fence ring
+    ctx.fillStyle='#7a5a32'; ctx.fillRect(112,114,266,6); ctx.fillRect(112,278,266,6); ctx.fillRect(112,114,6,170); ctx.fillRect(372,114,6,170);
+    ctx.fillStyle='#9a7444'; for(let x=112;x<378;x+=26){ ctx.fillRect(x,110,6,14); } for(let y=120;y<284;y+=26){ ctx.fillRect(110,y,6,10); ctx.fillRect(378,y,6,10); }
+
+    // player + trailing pets walking along the path
+    const speed=46, baseX=((t*speed)%(W+400))-200;   // move rightwards, loop
+    const pathY=338;
+    const wob=(ph)=>Math.sin(t*6+ph)*4;
+    // followers first (behind), then player, sorted so nearer front overlaps
+    const line=[
+      {kind:'pet', id:'chick', ability:'seed',    dx:-150, ph:2.1},
+      {kind:'pet', id:'fox',   ability:'coin',    dx:-96,  ph:1.0},
+      {kind:'pet', id:'lumi',  ability:'harvest', dx:-48,  ph:0.2},
+      {kind:'player', dx:0, ph:0},
+    ];
+    line.sort((a,b)=>(baseX+a.dx)-(baseX+b.dx));
+    for(const e of line){
+      const cx=baseX+e.dx, fy=pathY - wob(e.ph);
+      if(e.kind==='player'){ this.drawFarmer(ctx, cx, pathY, t); }
+      else {
+        const fi=P.frameForMotion(true, t*4 + e.ph);
+        P.drawPet(ctx, e.id, cx, fy, fi, 1.7, {t:t+e.ph, aura:e.ability, badge:true});
+      }
+    }
+    // vignette
+    const g=ctx.createRadialGradient(W/2,H/2,H*0.4,W/2,H/2,H*0.9);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(8,6,2,.34)');
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+  }
+
+  // simple farmer chibi to match the game's player
+  drawFarmer(ctx, px, feetY, t){
+    const s=1.9, color='#ffcf6e';
+    const hop=Math.abs(Math.sin(t*6))*3;
+    const bx=Math.round(px), by=Math.round(feetY-14*s-hop);
+    const dk=this.shade(color,-30), lt=this.shade(color,28);
+    ctx.globalAlpha=.26; ctx.fillStyle='#1a1206'; ctx.beginPath(); ctx.ellipse(bx,feetY-2,12*s*0.6,4,0,0,6.28); ctx.fill(); ctx.globalAlpha=1;
+    const ft=Math.sin(t*8)*3;
+    ctx.fillStyle=dk; ctx.fillRect(bx-6*s,by+16*s+ft,5*s,5*s); ctx.fillRect(bx+2*s,by+16*s-ft,5*s,5*s);
+    ctx.fillStyle=color; ctx.fillRect(bx-9*s,by,18*s,20*s);
+    ctx.fillStyle=lt; ctx.fillRect(bx-6*s,by+2*s,10*s,7*s);
+    ctx.fillStyle=color; ctx.fillRect(bx-8*s,by-5*s,5*s,5*s); ctx.fillRect(bx+3*s,by-5*s,5*s,5*s);
+    // straw hat
+    ctx.fillStyle='#e0b062'; ctx.fillRect(bx-11*s,by-2*s,22*s,4*s); ctx.fillStyle='#c99648'; ctx.fillRect(bx-6*s,by-8*s,12*s,7*s);
+    ctx.fillStyle='#2a1c10'; ctx.fillRect(bx-4*s,by+5*s,2*s,3*s); ctx.fillRect(bx+2*s,by+5*s,2*s,3*s);
+    ctx.fillStyle='rgba(255,140,150,.5)'; ctx.fillRect(bx-6*s,by+9*s,2*s,2*s); ctx.fillRect(bx+4*s,by+9*s,2*s,2*s);
+    // nametag
+    ctx.font="700 11px 'Noto Sans KR'"; ctx.textAlign='center';
+    const nm='나'; const tw=ctx.measureText(nm).width+14;
+    ctx.fillStyle='rgba(60,40,18,.9)'; this.rr(ctx,bx-tw/2,by-24*s,tw,15,4); ctx.fill();
+    ctx.strokeStyle='rgba(255,210,120,.6)'; ctx.lineWidth=1; this.rr(ctx,bx-tw/2,by-24*s,tw,15,4); ctx.stroke();
+    ctx.fillStyle='#ffe6b3'; ctx.fillText(nm,bx,by-24*s+11); ctx.textAlign='left';
+  }
+  rr(ctx,a,b,w,h,r){ ctx.beginPath(); ctx.moveTo(a+r,b); ctx.arcTo(a+w,b,a+w,b+h,r); ctx.arcTo(a+w,b+h,a,b+h,r); ctx.arcTo(a,b+h,a,b,r); ctx.arcTo(a,b,a+w,b,r); ctx.closePath(); }
+  shade(hex,amt){ const n=parseInt(hex.slice(1),16); let r=(n>>16)&255,g=(n>>8)&255,b=n&255; r=Math.max(0,Math.min(255,r+amt)); g=Math.max(0,Math.min(255,g+amt)); b=Math.max(0,Math.min(255,b+amt)); return '#'+((1<<24)+(r<<16)+(g<<8)+b).toString(16).slice(1); }
+
+  renderVals(){
+    const P=this.P;
+    if(!this.ready || !P){
+      return { pets:[], abilities:[], gradeBar:[], sheetRef:this.sheetRef, mockRef:this.mockRef };
+    }
+    // ensure ref arrays sized
+    if(this.cardRefs.length!==P.PETS.length) this.cardRefs = P.PETS.map(()=>React.createRef());
+    if(this.abilityRefs.length!==P.ABILITIES.length) this.abilityRefs = P.ABILITIES.map(()=>React.createRef());
+
+    const gradeBar = ['Common','Rare','Epic','Legendary'].map(k=>{ const g=P.GRADES[k]; return {pct:g.prob, color:g.color, short:g.prob}; });
+
+    const pets = P.PETS.map((p,i)=>{
+      const g=P.GRADES[p.grade];
+      const ab=P.ABILITIES.find(a=>a.id===p.ability);
+      return {
+        ref:this.cardRefs[i], name:p.name, concept:p.concept,
+        gradeLabel:g.label, gradeColor:g.color, gradeSoft:g.soft, gradeText:g.text, prob:g.prob,
+        stageBg:g.soft,
+        swatches:p.colors.map(h=>({hex:h})),
+        abilityName:ab.name, abilityIcon:ab.icon, abilityColor:ab.color, abilitySoft:ab.soft,
+      };
+    });
+
+    const abilities = P.ABILITIES.map((a,i)=>({
+      ref:this.abilityRefs[i], name:a.name, effect:a.effect, period:a.period, aura:a.aura, color:a.color, soft:a.soft,
+    }));
+
+    return { pets, abilities, gradeBar, sheetRef:this.sheetRef, mockRef:this.mockRef };
+  }
+}
+</script>
+</body>
+</html>

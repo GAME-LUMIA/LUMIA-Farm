@@ -1442,12 +1442,41 @@ class Component extends DCLogic {
     for (const e of ents){
       if (e.type==='pet'){
         const fi=P.frameForMotion(e.moving, e.anim);
-        const px=Math.round(e.x+ox), py=Math.round(e.y+oy);
-        P.drawPet(x, e.pet.id, px, py, fi, 1.35, {t:this.t*0.05, aura:e.pet.starving?null:e.pet.ability, badge:!e.pet.starving});
-        if(e.pet.starving) this.drawHungryBubble(x, px, py-46);
+        let px=Math.round(e.x+ox), py=Math.round(e.y+oy);
+        if(e.pet.starving){
+          // 제자리에서 우는 모습: 몸을 흔들며 훌쩍임(sob) + 눈물
+          const shake=Math.round(Math.sin(this.t*.9)*1.2);
+          const sob=Math.abs(Math.sin(this.t*.14))*2;
+          P.drawPet(x, e.pet.id, px+shake, py, fi, 1.35, {t:this.t*0.05, aura:null, badge:false, hover:sob});
+          this.drawTears(x, px+shake, py);
+          this.drawHungryBubble(x, px, py-46);
+        } else {
+          P.drawPet(x, e.pet.id, px, py, fi, 1.35, {t:this.t*0.05, aura:e.pet.ability, badge:true});
+        }
       } else {
         this.drawChar(x, e.x+ox, e.y+oy, e.color, e.name, e.me, e.anim, e.moving, e.dir);
       }
+    }
+  }
+
+  drawTears(x, cx, py){
+    const s=1.35;
+    const sob=Math.abs(Math.sin(this.t*.14))*2;
+    const eyeY=py-13*s-sob*s;      // 얼굴 눈 높이
+    for(const dx of [-6, 6]){
+      // 눈가에 맺힌 물방울
+      const drip=(this.t*0.9+(dx<0?0:1.6))%6;      // 0~6 반복 낙하
+      const ty=eyeY+drip*3.2;
+      const alpha=drip>5?(6-drip):1;                // 사라질 때 페이드
+      x.save();
+      x.globalAlpha=0.9*alpha;
+      x.fillStyle='#8fd6ff';
+      x.beginPath();
+      x.ellipse(cx+dx, ty, 1.8, 2.6, 0, 0, 6.28);
+      x.fill();
+      x.fillStyle='rgba(255,255,255,.9)';
+      x.fillRect(cx+dx-0.6, ty-1, 1, 1);
+      x.restore();
     }
   }
 
