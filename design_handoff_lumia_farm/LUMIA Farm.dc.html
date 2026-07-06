@@ -19,10 +19,14 @@
   @keyframes lumiaPop { 0%{ transform:scale(.85); opacity:0; } 100%{ transform:scale(1); opacity:1; } }
   @keyframes lumiaFade { from{ opacity:0; } to{ opacity:1; } }
   @keyframes lumiaRise { 0%{ transform:translateY(14px) scale(.96); opacity:0; } 100%{ transform:translateY(0) scale(1); opacity:1; } }
+  @keyframes lumiaLogIn { 0%{ transform:translateY(10px) scale(.9); opacity:0; } 100%{ transform:translateY(0) scale(1); opacity:1; } }
+  @keyframes lumiaLogInR { 0%{ transform:translateX(16px) scale(.92); opacity:0; } 100%{ transform:translateX(0) scale(1); opacity:1; } }
   .lumia-scroll::-webkit-scrollbar { width:10px; }
   .lumia-scroll::-webkit-scrollbar-track { background:rgba(90,61,34,.15); border-radius:5px; }
   .lumia-scroll::-webkit-scrollbar-thumb { background:#b9925a; border-radius:5px; border:2px solid #e9d6b0; }
 </style>
+<script src="./pets.js"></script>
+<script src="./crops.js"></script>
 </helmet>
 <div style="min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:radial-gradient(120% 90% at 50% 0%, #1b2030 0%, #0e0f17 70%); font-family:'Noto Sans KR',sans-serif;">
   <div style="position:relative; width:800px; height:600px; border-radius:8px; overflow:hidden; box-shadow:0 24px 70px -20px rgba(0,0,0,.7), 0 0 0 1px rgba(255,255,255,.05); background:#243018; image-rendering:pixelated;">
@@ -53,6 +57,56 @@
       </div>
     </div>
 
+    <!-- EQUIPPED PETS (side list) -->
+    <div style="position:absolute; top:58px; left:12px; z-index:6; display:flex; flex-direction:column; gap:7px; width:162px;">
+      <span style="font-family:'Press Start 2P'; font-size:7px; color:#ffd98a; letter-spacing:.5px; padding-left:3px; text-shadow:0 1px 2px rgba(0,0,0,.75);">장착한 펫 {{ petCountText }}/3</span>
+      <sc-for list="{{ equipped }}" as="pet" hint-placeholder-count="3">
+        <div style="position:relative; display:flex; flex-direction:column; gap:6px; padding:6px 7px 7px; border-radius:10px; background:rgba(28,18,10,.82); box-shadow:0 3px 10px -3px rgba(0,0,0,.5), inset 0 0 0 1.5px {{ pet.ring }}; animation:lumiaRise .3s ease backwards;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="width:30px; height:30px; flex-shrink:0; border-radius:8px; background:rgba(255,244,221,.13); box-shadow:inset 0 0 0 1px rgba(255,244,221,.18); display:flex; align-items:center; justify-content:center; filter:{{ pet.iconFilter }};">{{ pet.petIconEl }}</span>
+            <div style="display:flex; flex-direction:column; line-height:1.2; min-width:0; flex:1;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:4px;">
+                <span style="display:inline-flex; align-items:center; gap:4px; min-width:0;">
+                  <span style="font-family:'Press Start 2P'; font-size:6px; color:#fff; background:{{ pet.gradeColor }}; padding:2px 4px; border-radius:4px; flex-shrink:0;">{{ pet.gradeText }}</span>
+                  <span style="color:#fff4dd; font-size:12px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ pet.name }}</span>
+                  <button onClick="{{ pet.onRename }}" title="이름 변경" style="flex-shrink:0; width:16px; height:16px; padding:0; border:none; border-radius:4px; background:rgba(255,244,221,.14); color:#ffd98a; font-size:9px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center;" style-hover="background:rgba(255,244,221,.3);">✎</button>
+                </span>
+                <span style="color:{{ pet.hungerColor }}; font-size:8px; font-weight:700; white-space:nowrap; flex-shrink:0;">{{ pet.hungerText }}</span>
+              </div>
+              <span style="color:#c7a76a; font-size:9px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ pet.statusLabel }}</span>
+              <div style="margin-top:3px; height:6px; border-radius:3px; background:rgba(0,0,0,.45); box-shadow:inset 0 0 0 1px rgba(255,244,221,.12); overflow:hidden;">
+                <div style="height:100%; width:{{ pet.hungerPct }}; background:{{ pet.hungerColor }}; border-radius:3px; transition:width .25s linear;"></div>
+              </div>
+            </div>
+          </div>
+          <button onClick="{{ pet.onFeed }}" style="width:100%; padding:6px 0; border:none; border-radius:7px; background:linear-gradient(180deg,#f0894a,#d66a2f); color:#fff; font-family:'Noto Sans KR',sans-serif; font-weight:800; font-size:11px; letter-spacing:.5px; cursor:pointer; box-shadow:inset 0 2px 0 rgba(255,255,255,.3), 0 2px 0 #b5551f;" style-hover="filter:brightness(1.08);" style-active="transform:translateY(1px);">먹이주기</button>
+          <sc-if value="{{ pet.feedPickOpen }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; left:calc(100% + 8px); top:0; z-index:15; width:194px; border-radius:11px; background:rgba(28,18,10,.98); box-shadow:0 10px 26px -6px rgba(0,0,0,.65), inset 0 0 0 1.5px rgba(200,169,110,.5); animation:lumiaPop .12s ease; overflow:hidden;">
+              <div style="display:flex; align-items:center; justify-content:space-between; padding:9px 11px 7px; background:rgba(240,137,74,.16);">
+                <span style="font-family:'Press Start 2P'; font-size:7px; color:#ffd98a; letter-spacing:.3px;">{{ pet.name }} 먹이 선택</span>
+                <button onClick="{{ pet.closeFeedPick }}" style="width:16px; height:16px; padding:0; border:none; border-radius:4px; background:rgba(255,244,221,.14); color:#ffd98a; font-size:10px; line-height:1; cursor:pointer;">✕</button>
+              </div>
+              <div style="max-height:186px; overflow-y:auto; padding:7px;">
+                <sc-for list="{{ pet.feedList }}" as="f" hint-placeholder-count="3">
+                  <div onClick="{{ f.onPick }}" style="display:flex; align-items:center; gap:8px; padding:6px 7px; margin-bottom:5px; border-radius:8px; background:{{ f.rowBg }}; cursor:{{ f.cursor }}; opacity:{{ f.opacity }};" style-hover="filter:brightness(1.12);">
+                    <span style="width:30px; height:30px; flex-shrink:0; border-radius:7px; background:rgba(255,244,221,.1); display:flex; align-items:center; justify-content:center;">{{ f.iconEl }}</span>
+                    <div style="display:flex; flex-direction:column; gap:1px; min-width:0; flex:1;">
+                      <span style="color:#fff4dd; font-weight:800; font-size:12px; white-space:nowrap;">{{ f.name }} <span style="color:#c7a76a; font-weight:600; font-size:10px;">×{{ f.count }}</span></span>
+                      <span style="font-size:9.5px; font-weight:700; color:{{ f.fillColor }};">{{ f.fillText }}</span>
+                    </div>
+                    <span style="font-size:9px; color:#c7a76a; white-space:nowrap; flex-shrink:0;">{{ f.satText }}</span>
+                  </div>
+                </sc-for>
+                <sc-if value="{{ pet.feedEmpty }}" hint-placeholder-val="{{ false }}">
+                  <div style="padding:14px 8px; text-align:center; font-size:10.5px; color:#c7a76a; line-height:1.5;">인벤토리에 먹이가 없어요.<br>먹이 작물을 수확해 오세요.</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+      </sc-for>
+    </div>
+
     <!-- BOTTOM INTERACTION HINT -->
     <sc-if value="{{ showHint }}" hint-placeholder-val="{{ false }}">
       <div style="position:absolute; bottom:74px; left:50%; transform:translateX(-50%); z-index:6; display:flex; align-items:center; gap:10px; padding:9px 16px 9px 10px; border-radius:8px; background:rgba(28,18,10,.9); box-shadow:0 6px 18px -4px rgba(0,0,0,.6), inset 0 0 0 1.5px rgba(200,169,110,.55); animation:lumiaPop .18s ease;">
@@ -65,7 +119,7 @@
     <sc-if value="{{ cropTipShow }}" hint-placeholder-val="{{ false }}">
       <div style="position:absolute; left:{{ cropTipLeft }}; top:{{ cropTipTop }}; transform:translateX(-50%); z-index:8; pointer-events:none; display:flex; flex-direction:column; align-items:center; animation:lumiaPop .14s ease;">
         <div style="display:flex; align-items:center; gap:7px; padding:6px 11px; border-radius:9px; background:rgba(28,18,10,.92); box-shadow:0 4px 12px -3px rgba(0,0,0,.6), inset 0 0 0 1.5px rgba(200,169,110,.55); white-space:nowrap;">
-          <span style="font-size:17px;">{{ cropTipEmoji }}</span>
+          {{ cropTipIconEl }}
           <span style="color:#fff4dd; font-weight:800; font-size:13px;">{{ cropTipName }}</span>
           <sc-if value="{{ cropTipReady }}" hint-placeholder-val="{{ false }}">
             <span style="display:inline-flex; align-items:center; gap:3px; padding:2px 7px; border-radius:5px; background:#5fa233; color:#fff; font-size:10px; font-weight:800;">수확 가능</span>
@@ -78,12 +132,25 @@
       </div>
     </sc-if>
 
+    <!-- WORLD EVENT LOG (top-right, under inventory button) -->
+    <div style="position:absolute; top:88px; right:16px; z-index:8; display:flex; flex-direction:column; align-items:flex-end; gap:5px; pointer-events:none;">
+      <sc-for list="{{ gameLog }}" as="e" hint-placeholder-count="0">
+        <div style="display:flex; align-items:center; gap:8px; padding:6px 12px 6px 7px; border-radius:20px; background:rgba(28,18,10,.9); box-shadow:0 4px 12px -3px rgba(0,0,0,.55), inset 0 0 0 1.5px rgba(200,169,110,.45); animation:lumiaLogInR .25s cubic-bezier(.2,.9,.3,1.2); white-space:nowrap;">
+          <span style="width:26px; height:26px; flex-shrink:0; border-radius:50%; background:rgba(255,244,221,.12); display:flex; align-items:center; justify-content:center;">{{ e.petIconEl }}</span>
+          <span style="font-family:'Noto Sans KR',sans-serif; font-size:12.5px; color:#fff4dd;"><b style="color:{{ e.color }};">{{ e.name }}</b>{{ e.verb }}</span>
+          <sc-if value="{{ e.itemIconEl }}" hint-placeholder-val="{{ false }}"><span style="width:20px; height:20px; flex-shrink:0; display:flex; align-items:center; justify-content:center;">{{ e.itemIconEl }}</span></sc-if>
+          <span style="font-family:'Noto Sans KR',sans-serif; font-size:12.5px; font-weight:800; color:#fff;">{{ e.itemName }}</span>
+          <sc-if value="{{ e.tail }}" hint-placeholder-val="{{ false }}"><span style="font-family:'Noto Sans KR',sans-serif; font-size:11px; color:#c7a76a;">{{ e.tail }}</span></sc-if>
+        </div>
+      </sc-for>
+    </div>
+
     <!-- HOTBAR (Minecraft-style, always visible) -->
     <div style="position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:7; display:flex; gap:5px; padding:6px; border-radius:11px; background:rgba(28,18,10,.78); box-shadow:0 5px 16px -4px rgba(0,0,0,.55), inset 0 0 0 1.5px rgba(200,169,110,.4);">
       <sc-for list="{{ hotbar }}" as="h" hint-placeholder-count="10">
         <div style="position:relative; width:44px; height:44px; border-radius:8px; background:{{ h.selBg }}; box-shadow:inset 0 0 0 2px {{ h.selRing }}; display:flex; align-items:center; justify-content:center; font-size:23px; transform:scale({{ h.selScale }}); transition:transform .1s ease;">
           <span style="position:absolute; left:3px; top:1px; font-family:'Press Start 2P'; font-size:7px; color:rgba(120,95,55,.85);">{{ h.num }}</span>
-          {{ h.emoji }}
+          {{ h.iconEl }}
           <sc-if value="{{ h.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#4a3618; background:rgba(255,255,255,.85); padding:1px 3px; border-radius:4px;">{{ h.count }}</span></sc-if>
         </div>
       </sc-for>
@@ -93,12 +160,55 @@
     <div style="position:absolute; bottom:14px; left:14px; z-index:5; display:flex; flex-direction:column; gap:3px; opacity:.5; pointer-events:none;">
       <span style="font-family:'Press Start 2P'; font-size:6px; color:#fff4dd; letter-spacing:.5px;">WASD / 방향키 이동</span>
       <span style="font-family:'Press Start 2P'; font-size:6px; color:#fff4dd; letter-spacing:.5px;">E 상호작용</span>
+      <span style="font-family:'Press Start 2P'; font-size:6px; color:#fff4dd; letter-spacing:.5px;">X 삽으로 캐기</span>
     </div>
+
+    <!-- ============ PET RENAME MODAL ============ -->
+    <sc-if value="{{ renameOpen }}" hint-placeholder-val="{{ false }}">
+      <div onClick="{{ closeRename }}" style="position:absolute; inset:0; z-index:24; display:flex; align-items:center; justify-content:center; background:rgba(18,12,6,.62); animation:lumiaFade .15s ease; font-family:'Noto Sans KR',sans-serif;">
+        <div onClick="{{ stop }}" style="position:relative; width:320px; border-radius:16px; overflow:hidden; background:#efdcb8; box-shadow:0 22px 60px -16px rgba(0,0,0,.7), 0 0 0 4px #8a6736, 0 0 0 7px #b9925a, inset 0 0 0 2px rgba(255,255,255,.35); animation:lumiaRise .22s cubic-bezier(.2,.9,.3,1.2);">
+          <div style="display:flex; align-items:center; gap:11px; padding:14px 16px; background:#7a8b3a; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18);">
+            <div style="width:40px; height:40px; border-radius:10px; background:rgba(255,255,255,.85); display:flex; align-items:center; justify-content:center; font-size:22px; box-shadow:inset 0 -3px 0 rgba(0,0,0,.12);">{{ renameEmoji }}</div>
+            <div style="display:flex; flex-direction:column; gap:2px;">
+              <span style="color:#fff; font-weight:900; font-size:16px; text-shadow:0 2px 2px rgba(0,0,0,.25);">펫 이름 변경</span>
+              <span style="color:rgba(255,255,255,.85); font-size:11px; font-weight:600;">{{ renameSpecies }} · 최대 10자</span>
+            </div>
+          </div>
+          <div style="padding:18px 16px 16px; display:flex; flex-direction:column; gap:14px;">
+            <input value="{{ renameText }}" onInput="{{ onRenameInput }}" onKeyDown="{{ onRenameKey }}" maxlength="10" placeholder="{{ renameSpecies }}" autofocus="{{ true }}" style="width:100%; box-sizing:border-box; padding:12px 14px; border:none; border-radius:10px; background:#fbf3e2; box-shadow:inset 0 0 0 2px #d8b772; color:#4a3618; font-size:16px; font-weight:700; font-family:'Noto Sans KR',sans-serif; outline:none;">
+            <div style="display:flex; gap:9px;">
+              <button onClick="{{ closeRename }}" style="flex:1; border:none; border-radius:10px; padding:11px 0; background:#e8d6b0; color:#6a4a1c; font-weight:800; font-size:14px; cursor:pointer; box-shadow:inset 0 0 0 1.5px #d8b772;">취소</button>
+              <button onClick="{{ commitRename }}" style="flex:1.6; border:none; border-radius:10px; padding:11px 0; background:linear-gradient(180deg,#7bc24a,#5fa233); color:#fff; font-weight:800; font-size:14px; cursor:pointer; box-shadow:inset 0 2px 0 rgba(255,255,255,.35), 0 3px 0 #4a8527;" style-active="transform:translateY(2px);">저장</button>
+            </div>
+            <span style="font-size:11px; color:#9a7f50; text-align:center;">비워두면 기본 종족 이름으로 돌아가요</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
 
     <!-- ============ SHOP MODAL ============ -->
     <sc-if value="{{ shopOpen }}" hint-placeholder-val="{{ false }}">
       <div style="position:absolute; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; background:rgba(18,12,6,.62); animation:lumiaFade .15s ease; font-family:'Noto Sans KR',sans-serif;">
-        <div style="position:relative; width:580px; max-height:480px; display:flex; flex-direction:column; border-radius:16px; overflow:hidden; background:#efdcb8; box-shadow:0 22px 60px -16px rgba(0,0,0,.7), 0 0 0 4px #8a6736, 0 0 0 7px #b9925a, inset 0 0 0 2px rgba(255,255,255,.35); animation:lumiaRise .22s cubic-bezier(.2,.9,.3,1.2);">
+        <div data-modal-overlay="1" style="position:relative; width:580px; max-height:480px; display:flex; flex-direction:column; border-radius:16px; overflow:hidden; background:#efdcb8; box-shadow:0 22px 60px -16px rgba(0,0,0,.7), 0 0 0 4px #8a6736, 0 0 0 7px #b9925a, inset 0 0 0 2px rgba(255,255,255,.35); animation:lumiaRise .22s cubic-bezier(.2,.9,.3,1.2);">
+
+          <!-- INVENTORY ITEM TOOLTIP (overlay layer — never affects scroll) -->
+          <sc-if value="{{ invTip.show }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute; z-index:30; padding:9px 11px; border-radius:10px; background:rgba(28,18,10,.97); box-shadow:0 8px 20px -4px rgba(0,0,0,.6), inset 0 0 0 1.5px rgba(200,169,110,.5); pointer-events:none; animation:lumiaPop .1s ease; text-align:left; left:{{ invTip.left }}; top:{{ invTip.top }}; width:{{ invTip.width }};">
+              <div style="display:flex; align-items:center; gap:7px; margin-bottom:6px;">
+                <span style="width:30px; height:30px; flex-shrink:0; border-radius:7px; background:rgba(255,244,221,.12); display:flex; align-items:center; justify-content:center;">{{ invTip.iconEl }}</span>
+                <div style="display:flex; flex-direction:column; gap:2px; min-width:0;">
+                  <span style="color:#fff4dd; font-weight:800; font-size:13px; white-space:nowrap;">{{ invTip.name }} <span style="color:#c7a76a; font-weight:600; font-size:11px;">×{{ invTip.count }}</span></span>
+                  <span style="display:inline-flex; align-items:center; gap:4px;"><span style="font-family:'Press Start 2P'; font-size:6px; color:#fff; background:{{ invTip.tierColor }}; padding:2px 4px; border-radius:4px;">{{ invTip.tier }}</span><span style="color:#c7a76a; font-size:10px; font-weight:600;">{{ invTip.tierName }}</span></span>
+                </div>
+              </div>
+              <div style="display:flex; flex-wrap:wrap; column-gap:10px; row-gap:2px; font-size:10px; color:#e0cfa8; line-height:1.5;">
+                <span>🌱 {{ invTip.regrow }}</span>
+                <span>{{ invTip.sell }}</span>
+                <sc-if value="{{ invTip.feed }}" hint-placeholder-val="{{ false }}"><span style="color:#f0a84a;">{{ invTip.feed }}</span></sc-if>
+                <span style="color:{{ invTip.hotColor }}; font-weight:700;">{{ invTip.hot }}</span>
+              </div>
+            </div>
+          </sc-if>
 
           <!-- HEADER -->
           <div style="position:relative; display:flex; align-items:center; gap:13px; padding:15px 16px; background:{{ shopColor }}; box-shadow:inset 0 -3px 0 rgba(0,0,0,.18), inset 0 2px 0 rgba(255,255,255,.3);">
@@ -122,7 +232,7 @@
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:11px;">
                 <sc-for list="{{ buyItems }}" as="it" hint-placeholder-count="4">
                   <div style="display:flex; align-items:center; gap:11px; padding:11px; border-radius:12px; background:#fbf3e2; box-shadow:inset 0 0 0 2px #e0caa0, 0 2px 0 rgba(160,130,80,.3);">
-                    <div style="width:46px; height:46px; flex-shrink:0; border-radius:9px; background:#efe0c4; display:flex; align-items:center; justify-content:center; font-size:25px; box-shadow:inset 0 0 0 1.5px #d8c198;">{{ it.emoji }}</div>
+                    <div style="width:46px; height:46px; flex-shrink:0; border-radius:9px; background:#efe0c4; display:flex; align-items:center; justify-content:center; font-size:25px; box-shadow:inset 0 0 0 1.5px #d8c198;">{{ it.iconEl }}<sc-if value="{{ it.noIcon }}" hint-placeholder-val="{{ true }}">{{ it.emoji }}</sc-if></div>
                     <div style="display:flex; flex-direction:column; gap:2px; min-width:0; flex:1;">
                       <span style="font-weight:800; font-size:14px; color:#4a3618;">{{ it.name }}</span>
                       <span style="font-size:11px; color:#9a7f50;">{{ it.sub }}</span>
@@ -139,7 +249,7 @@
               <div style="display:flex; flex-direction:column; gap:9px;">
                 <sc-for list="{{ sellItems }}" as="it" hint-placeholder-count="5">
                   <div style="display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:11px; background:#fbf3e2; box-shadow:inset 0 0 0 2px #e0caa0; opacity:{{ it.dimOpacity }};">
-                    <div style="width:42px; height:42px; flex-shrink:0; border-radius:9px; background:#efe0c4; display:flex; align-items:center; justify-content:center; font-size:23px; box-shadow:inset 0 0 0 1.5px #d8c198;">{{ it.emoji }}</div>
+                    <div style="width:42px; height:42px; flex-shrink:0; border-radius:9px; background:#efe0c4; display:flex; align-items:center; justify-content:center; font-size:23px; box-shadow:inset 0 0 0 1.5px #d8c198;">{{ it.iconEl }}<sc-if value="{{ it.noIcon }}" hint-placeholder-val="{{ true }}">{{ it.emoji }}</sc-if></div>
                     <div style="display:flex; flex-direction:column; gap:2px; flex:1; min-width:0;">
                       <span style="font-weight:800; font-size:14px; color:#4a3618;">{{ it.name }}</span>
                       <span style="font-size:11px; color:#9a7f50;">보유 {{ it.count }}개 · 개당 🪙 {{ it.price }}</span>
@@ -202,10 +312,17 @@
 
             <!-- INVENTORY GRID -->
             <sc-if value="{{ isInv }}" hint-placeholder-val="{{ false }}">
-              <div style="font-size:11px; color:#9a7f50; font-weight:700; margin-bottom:8px;">🎒 들고 다니는 아이템 · 하단 핫바는 1~10번 슬롯</div>
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                <span style="font-size:11px; color:#9a7f50; font-weight:700;">🎒 드래그해서 위치를 바꿀 수 있어요</span>
+                <span style="display:inline-flex; align-items:center; gap:5px; font-size:10px; font-weight:800; color:#b56e22; background:rgba(240,169,74,.16); padding:3px 8px; border-radius:6px;"><span style="width:9px; height:9px; border-radius:3px; background:#e6b25e; box-shadow:inset 0 0 0 1.5px #b56e22;"></span>윗줄 1~10번 = 핫바에 표시</span>
+              </div>
               <div style="display:grid; grid-template-columns:repeat(10,1fr); gap:7px;">
                 <sc-for list="{{ invSlots }}" as="s" hint-placeholder-count="30">
-                  <div style="position:relative; aspect-ratio:1; border-radius:9px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center; font-size:21px;">{{ s.emoji }}<sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#5a3d22; background:rgba(255,255,255,.85); padding:1px 3px; border-radius:4px;">{{ s.count }}</span></sc-if></div>
+                  <div draggable="{{ s.draggable }}" onDragStart="{{ s.onDragStart }}" onDragEnter="{{ s.onDragEnter }}" onDragOver="{{ s.onDragOver }}" onDrop="{{ s.onDrop }}" onDragEnd="{{ s.onDragEnd }}" onMouseEnter="{{ s.onMouseEnter }}" onMouseLeave="{{ s.onMouseLeave }}" style="position:relative; aspect-ratio:1; border-radius:9px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center; font-size:21px; cursor:{{ s.cursor }}; opacity:{{ s.dragOpacity }}; transition:box-shadow .1s, transform .1s;" style-hover="{{ s.hoverShadow }}">
+                    {{ s.iconEl }}
+                    <sc-if value="{{ s.hotShow }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; left:2px; top:1px; font-family:'Press Start 2P'; font-size:6px; color:#fff; background:#d6862f; padding:1px 3px; border-radius:4px; box-shadow:0 1px 0 rgba(0,0,0,.2);">{{ s.hotKey }}</span></sc-if>
+                    <sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#5a3d22; background:rgba(255,255,255,.85); padding:1px 3px; border-radius:4px;">{{ s.count }}</span></sc-if>
+                  </div>
                 </sc-for>
               </div>
             </sc-if>
@@ -217,7 +334,7 @@
                   <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:#4a3618;"><span style="font-size:15px;">🎒</span>인벤토리<span style="font-size:10px; font-weight:600; color:#9a7f50;">· 클릭 1개 · Shift 전부 →</span></div>
                   <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:7px; padding:10px; border-radius:11px; background:rgba(122,139,58,.12); box-shadow:inset 0 0 0 2px rgba(122,139,58,.3);">
                     <sc-for list="{{ depoSlots }}" as="s" hint-placeholder-count="30">
-                      <div onClick="{{ s.onClick }}" style="position:relative; aspect-ratio:1; border-radius:8px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:{{ s.cursor }};" style-hover="{{ s.hoverStyle }}">{{ s.emoji }}<sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#5a3d22; background:rgba(255,255,255,.85); padding:1px 2px; border-radius:3px;">{{ s.count }}</span></sc-if></div>
+                      <div onClick="{{ s.onClick }}" style="position:relative; aspect-ratio:1; border-radius:8px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:{{ s.cursor }};" style-hover="{{ s.hoverStyle }}">{{ s.iconEl }}<sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#5a3d22; background:rgba(255,255,255,.85); padding:1px 2px; border-radius:3px;">{{ s.count }}</span></sc-if></div>
                     </sc-for>
                   </div>
                 </div>
@@ -226,7 +343,7 @@
                   <div style="display:flex; align-items:center; gap:6px; font-size:12px; font-weight:800; color:#4a3618;"><span style="font-size:15px;">📦</span>보관함<span style="font-size:10px; font-weight:600; color:#9a7f50;">· ← 클릭 1개 · Shift 전부</span></div>
                   <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:7px; padding:10px; border-radius:11px; background:rgba(176,138,74,.14); box-shadow:inset 0 0 0 2px rgba(176,138,74,.34);">
                     <sc-for list="{{ withSlots }}" as="s" hint-placeholder-count="30">
-                      <div onClick="{{ s.onClick }}" style="position:relative; aspect-ratio:1; border-radius:8px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:{{ s.cursor }};" style-hover="{{ s.hoverStyle }}">{{ s.emoji }}<sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#5a3d22; background:rgba(255,255,255,.85); padding:1px 2px; border-radius:3px;">{{ s.count }}</span></sc-if></div>
+                      <div onClick="{{ s.onClick }}" style="position:relative; aspect-ratio:1; border-radius:8px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:{{ s.cursor }};" style-hover="{{ s.hoverStyle }}">{{ s.iconEl }}<sc-if value="{{ s.hasCount }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:7px; color:#5a3d22; background:rgba(255,255,255,.85); padding:1px 2px; border-radius:3px;">{{ s.count }}</span></sc-if></div>
                     </sc-for>
                   </div>
                 </div>
@@ -247,21 +364,24 @@
   </div>
 </div>
 </x-dc>
-<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:848,&quot;height&quot;:648}}">
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:848,&quot;height&quot;:648},&quot;pet1&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;루미&quot;,&quot;options&quot;:[&quot;없음&quot;,&quot;삐약이&quot;,&quot;토깽이&quot;,&quot;햄찌&quot;,&quot;나비&quot;,&quot;멍이&quot;,&quot;폭신양&quot;,&quot;여우&quot;,&quot;별다람&quot;,&quot;루미&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;펫 1&quot;},&quot;pet1Name&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;펫 1&quot;},&quot;pet1Ability&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;수확 도우미&quot;,&quot;options&quot;:[&quot;씨앗 수집가&quot;,&quot;행운의 상인&quot;,&quot;수확 도우미&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;펫 1&quot;},&quot;pet2&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;여우&quot;,&quot;options&quot;:[&quot;없음&quot;,&quot;삐약이&quot;,&quot;토깽이&quot;,&quot;햄찌&quot;,&quot;나비&quot;,&quot;멍이&quot;,&quot;폭신양&quot;,&quot;여우&quot;,&quot;별다람&quot;,&quot;루미&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;펫 2&quot;},&quot;pet2Name&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;펫 2&quot;},&quot;pet2Ability&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;행운의 상인&quot;,&quot;options&quot;:[&quot;씨앗 수집가&quot;,&quot;행운의 상인&quot;,&quot;수확 도우미&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;펫 2&quot;},&quot;pet3&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;삐약이&quot;,&quot;options&quot;:[&quot;없음&quot;,&quot;삐약이&quot;,&quot;토깽이&quot;,&quot;햄찌&quot;,&quot;나비&quot;,&quot;멍이&quot;,&quot;폭신양&quot;,&quot;여우&quot;,&quot;별다람&quot;,&quot;루미&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;펫 3&quot;},&quot;pet3Name&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;펫 3&quot;},&quot;pet3Ability&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;씨앗 수집가&quot;,&quot;options&quot;:[&quot;씨앗 수집가&quot;,&quot;행운의 상인&quot;,&quot;수확 도우미&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;펫 3&quot;}}">
 class Component extends DCLogic {
   constructor(props){
     super(props);
     this.canvasRef = React.createRef();
     this.keys = {};
     this.TILE = 40;
+    this.GROW_SCALE = 40;   // 데모: 실제 성장시간을 압축해 관찰 가능하게
+    this.HUNGER_DEMO = 40;  // 데모: 배고픔 소모 가속 배수
     this.VW = 800; this.VH = 600;
     this.state = {
       name:'Kyle', gold:1234, luna:567, farmLevel:3,
       showHint:false, hintText:'', hintKey:'E', invOpen:false,
       shopKind:null, exchGold:100, exchDir:'g2l', toast:null,
-      sel:0, cropTip:{show:false},
-      inv: this.makeInv([['carrot',12],['wheat',8],['strawberry',5],['pumpkin',3],['star',1]], 30),
-      sto: this.makeInv([['carrot',40],['pumpkin',6],['wheat',25]], 30),
+      sel:0, cropTip:{show:false}, renameIdx:null, renameText:'', petNames:this.loadPetNames(), feedPickIdx:null,
+      invDrag:null, invOver:null, invHover:null, invHoverBox:null, gameLog:[],
+      inv: this.makeInv([['carrot',12],['tomato',8],['strawberry',5],['pumpkin',3],['apple',1]], 30),
+      sto: this.makeInv([['carrot',40],['pumpkin',6],['corn',25]], 30),
     };
     // ---- shop catalogs ----
     this.SHOPMETA = {
@@ -275,13 +395,7 @@ class Component extends DCLogic {
       upgrade:{emoji:'⬆️', label:'업그레이드 상점', color:'#8a6ad6', sub:'도구와 농장을 강화',      layout:'upg'},
       hire:   {emoji:'🔨', label:'도구 및 알바 고용', color:'#5a9bd6', sub:'일손과 장비를 빌리세요',  layout:'upg'},
     };
-    this.CROPINFO = {
-      carrot:{name:'당근', emoji:'🥕', seed:18, sell:32, grow:'4분', secs:240},
-      wheat:{name:'밀', emoji:'🌾', seed:12, sell:22, grow:'3분', secs:180},
-      strawberry:{name:'딸기', emoji:'🍓', seed:34, sell:60, grow:'7분', secs:420},
-      pumpkin:{name:'호박', emoji:'🎃', seed:48, sell:95, grow:'10분', secs:600},
-      star:{name:'별과일', emoji:'⭐', seed:120, sell:240, grow:'20분', secs:1200, luna:true},
-    };
+    this.buildCropInfo();
     this.PETS = [
       {id:'chick', name:'병아리', emoji:'🐥', price:40, cur:'luna', desc:'수확 +5%'},
       {id:'bunny', name:'토끼', emoji:'🐰', price:75, cur:'luna', desc:'성장 +8%'},
@@ -301,9 +415,346 @@ class Component extends DCLogic {
         {id:'merchant', name:'행상인 호출', emoji:'🛒', lv:0, max:1, cost:90, cur:'gold', desc:'더 비싼 값에 판매'},
       ],
     };
+
+    // ---- companion pets ----
+    this.petNameToId = {'삐약이':'chick','토깽이':'bunny','햄찌':'hamster','나비':'cat','멍이':'dog','폭신양':'sheep','여우':'fox','별다람':'squirrel','루미':'lumi'};
+    this.abilNameToId = {'씨앗 수집가':'seed','행운의 상인':'coin','수확 도우미':'harvest'};
+    this.petEmoji = {chick:'🐥',bunny:'🐰',hamster:'🐹',cat:'🐱',dog:'🐶',sheep:'🐑',fox:'🦊',squirrel:'🐿️',lumi:'✨'};
+    this.abilEmoji = {seed:'🌱',coin:'🪙',harvest:'🧺'};
+    this.pets = [];
+    this.petSig = null;
+  }
+
+  buildCropInfo(){
+    const C=window.LumiaCrops;
+    this.CROP_IDS = C ? C.CROPS.map(c=>c.id) : ['carrot'];
+    const tierPrice={T1:[10,18],T2:[25,45],T3:[60,110],T4:[140,260],T5:[300,520],T6:[600,1050]};
+    const info={};
+    if(C){
+      C.CROPS.forEach(c=>{
+        const tp=tierPrice[c.tier]||[10,18]; const luna=c.id==='goldenapple';
+        info[c.id]={ name:c.name, emoji:c.emoji, tier:c.tier,
+          seed: luna?45:tp[0], sell: luna?90:tp[1], luna,
+          grow:c.grow, secs:this.parseSpec(c.grow),
+          regrow:c.regrow||null, regrowSecs:c.regrow?this.parseSpec(c.regrow):0 };
+      });
+      this.FEEDMAP={}; C.FEED.forEach(f=>{ this.FEEDMAP[f.id]={hunger:f.hunger, satiety:f.satiety}; });
+      this.GRADE_DRAIN={}; C.HUNGER.forEach(h=>{ this.GRADE_DRAIN[h.key]=h.secs; });
+    } else {
+      info.carrot={name:'당근',emoji:'🥕',tier:'T1',seed:10,sell:18,luna:false,grow:'5분',secs:300,regrow:null,regrowSecs:0};
+      this.FEEDMAP={carrot:{hunger:[80,20,0,0],satiety:[10,5,0,0]}};
+      this.GRADE_DRAIN={Common:1800,Rare:3600,Epic:7200,Legendary:10800};
+    }
+    this.CROPINFO=info;
+    if(C && typeof document!=='undefined') this.makeIcons();
+  }
+
+  // ---- pixel-art seed/crop icon rendering (cached dataURLs) ----
+  makeIcons(){
+    const C=window.LumiaCrops; if(!C) return;
+    for(const id in this.CROPINFO){
+      const c=C.CROPS.find(x=>x.id===id); if(!c) continue;
+      this.CROPINFO[id].iconCrop = this.renderCropIcon(c);
+      this.CROPINFO[id].iconSeed = this.renderSeedIcon(c);
+    }
+    this._iconsReady=true;
+  }
+  renderCropIcon(c){
+    const S=48, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
+    const ctx=cv.getContext('2d'); ctx.imageSmoothingEnabled=false;
+    window.LumiaCrops.drawFruit(ctx, c.id, S/2, S/2, 1.55);
+    return cv.toDataURL();
+  }
+  renderSeedIcon(c){
+    // little kraft-paper seed packet with a fruit-colored window
+    const S=48, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
+    const x=cv.getContext('2d'); x.imageSmoothingEnabled=false;
+    const P=(a,b,w,h,col)=>{ x.fillStyle=col; x.fillRect(a,b,w,h); };
+    const sh=window.LumiaCrops.shade;
+    // shadow
+    P(12,42,24,3,'rgba(40,22,8,.22)');
+    // packet body
+    P(11,10,26,32,'#5a3d20');            // outline
+    P(12,11,24,30,'#d8b877');            // paper
+    P(12,11,24,3,'#e6ca94');             // top light
+    P(12,38,24,3,sh('#d8b877',-28));     // bottom shade
+    // torn top zigzag flap
+    for(let i=0;i<6;i++){ P(12+i*4,8,3,3, i%2? '#c7a35e':'#d8b877'); }
+    // fruit window (rounded-ish)
+    P(16,17,16,14,'#f4ecd6');
+    P(15,19,18,10,'#f4ecd6');
+    // crop fruit dot inside window
+    P(20,20,8,8,c.fruit); P(20,20,8,3,c.fruit2); P(26,26,2,2,sh(c.fruit,-30));
+    P(23,18,2,2,c.leaf2);                 // little sprout
+    // seeds row
+    P(16,34,3,2,sh(c.fruit,-20)); P(22,35,3,2,sh(c.fruit,-20)); P(28,34,3,2,sh(c.fruit,-20));
+    return cv.toDataURL();
+  }
+  loadPetNames(){
+    try{ const s=localStorage.getItem('lumia_petnames'); if(s) return JSON.parse(s); }catch(e){}
+    return [null,null,null];
+  }
+  savePetNames(arr){ try{ localStorage.setItem('lumia_petnames', JSON.stringify(arr)); }catch(e){} }
+  openRename(i){ const cfg=this.equippedConfig(); const cur=cfg[i]; this.keys={}; this.setState({renameIdx:i, renameText:(cur&&cur.custom)||''}); }
+  closeRename(){ this.setState({renameIdx:null, renameText:''}); }
+  commitRename(){
+    const i=this.state.renameIdx; if(i==null) return;
+    const names=(this.state.petNames||[null,null,null]).slice();
+    const v=(this.state.renameText||'').trim().slice(0,10);
+    names[i]= v||null;
+    this.savePetNames(names);
+    this.setState({petNames:names, renameIdx:null, renameText:''});
+    const cfg=this.equippedConfig();
+    this.flash('✎ '+(cfg[i]?cfg[i].species:'펫')+' → “'+(v||cfg[i].species)+'” 로 변경');
+  }
+  parseSpec(str){ if(!str) return 60; let s=0; const h=str.match(/(\d+)\s*시간/); const m=str.match(/(\d+)\s*분/); if(h)s+=(+h[1])*3600; if(m)s+=(+m[1])*60; return s||60; }
+  gradeLabel(g){ return {Common:'커먼',Rare:'레어',Epic:'에픽',Legendary:'레전더리'}[g]||g; }
+  gradeIndex(g){ return {Common:0,Rare:1,Epic:2,Legendary:3}[g]||0; }
+  harvestReset(c){
+    const info=this.CROPINFO[c.crop]||{};
+    if(info.regrow){ c.ready=false; c.stage=2; c.growLeft=info.regrowSecs; }
+    else { const i=this.crops.indexOf(c); if(i>=0) this.crops.splice(i,1); }
+  }
+  digUp(){
+    if(this.state.shopKind) return;
+    const pgx=Math.round(this.player.x/this.TILE), pgy=Math.round(this.player.y/this.TILE);
+    const i=this.crops.findIndex(c=>c.gx===pgx&&c.gy===pgy);
+    if(i<0){ this.flash('여기엔 캘 작물이 없어요', false); return; }
+    const c=this.crops[i]; this.crops.splice(i,1); this.nearCrop=null;
+    this.burst(c.gx+.5, c.gy+.5, '#b98a5a', 10);
+    const nm=this.CROPINFO[c.crop]?this.CROPINFO[c.crop].name:'작물';
+    this.flash('🪏 '+nm+' 캐냈어요 · 빈 흙');
+  }
+  equippedConfig(){
+    const P=window.LumiaPets;
+    const slots=[
+      {sp:this.props.pet1 || '루미',   ab:this.props.pet1Ability || '수확 도우미', nm:this.props.pet1Name},
+      {sp:this.props.pet2 || '여우',   ab:this.props.pet2Ability || '행운의 상인', nm:this.props.pet2Name},
+      {sp:this.props.pet3 || '삐약이', ab:this.props.pet3Ability || '씨앗 수집가', nm:this.props.pet3Name},
+    ];
+    return slots.filter(s=>s.sp && s.sp!=='없음').map((s,idx)=>{
+      const id=this.petNameToId[s.sp]||'lumi', abId=this.abilNameToId[s.ab]||'harvest';
+      const meta=P?P.PETS.find(p=>p.id===id):null;
+      const grade=meta?meta.grade:'Common';
+      const inGame=(this.state.petNames&&this.state.petNames[idx])||'';
+      const propName=(s.nm&&String(s.nm).trim())?String(s.nm).trim():'';
+      const custom=inGame||propName;
+      return {id, ability:abId, species:s.sp, custom, name:custom||s.sp, abilityName:s.ab,
+        emoji:this.petEmoji[id], abilityEmoji:this.abilEmoji[abId], grade};
+    });
+  }
+
+  renderPetIcon(id){
+    if(!this._petIconCache) this._petIconCache={};
+    if(this._petIconCache[id]) return this._petIconCache[id];
+    const P=window.LumiaPets; if(!P) return null;
+    const S=40, cv=document.createElement('canvas'); cv.width=S; cv.height=S;
+    const ctx=cv.getContext('2d'); ctx.imageSmoothingEnabled=false;
+    P.drawPet(ctx, id, S/2, S-4, 0, 1.15, {shadow:false, t:0});
+    const url=cv.toDataURL();
+    this._petIconCache[id]=url;
+    return url;
+  }
+  feedInfoFor(grade){
+    const gi=this.gradeIndex(grade), C=window.LumiaCrops;
+    const foods=[];
+    if(C){
+      for(const f of C.FEED){ const fill=(this.FEEDMAP[f.id]||{hunger:[0,0,0,0]}).hunger[gi];
+        if(fill>0){ const cr=this.CROPINFO[f.id]||{}; foods.push({id:f.id, name:cr.name||f.id, fill, iconEl:this.imgEl(cr.iconCrop,'15px')}); } }
+    }
+    foods.sort((a,b)=>b.fill-a.fill);
+    const maxFill=foods.length?foods[0].fill:0;
+    return {foods:foods.slice(0,6), maxFill};
+  }
+
+  equippedHud(){
+    const cfg=this.equippedConfig();
+    return cfg.map((c,i)=>{
+      const pet=this.pets && this.pets[i];
+      const hunger=pet? pet.hunger : 100;
+      const starving=pet? pet.starving : false;
+      const pct=Math.max(0,Math.min(100,Math.round(hunger)));
+      const sated=pet? pet.satietyLeft>0 : false;
+      const color = pct>50? '#7fd14f' : pct>20? '#f0b53a' : '#ef4d54';
+      const gcol={Common:'#7fa844',Rare:'#3f9fd6',Epic:'#9a68e0',Legendary:'#f0a52f'};
+      const fi=this.feedInfoFor(c.grade);
+      return {
+        ...c,
+        petIconEl:this.imgEl(this.renderPetIcon(c.id),'30px'),
+        onFeed:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); this.setState(s=>({feedPickIdx: s.feedPickIdx===i?null:i})); },
+        feedPickOpen: this.state.feedPickIdx===i,
+        feedList: this.feedListFor(c.grade, i),
+        feedEmpty: this.feedListFor(c.grade, i).length===0,
+        closeFeedPick:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); this.setState({feedPickIdx:null}); },
+        onRename:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); this.openRename(i); },
+        hungerPct:pct+'%',
+        hungerText:pct+'%',
+        hungerColor:color,
+        gradeText:this.gradeLabel(c.grade),
+        gradeColor:gcol[c.grade]||'#7fa844',
+        ring: starving? 'rgba(239,77,84,.85)' : 'rgba(200,169,110,.4)',
+        iconFilter: starving? 'grayscale(.6) brightness(.85)' : 'none',
+        statusLabel: starving? '😢 배고파요 · 먹이 필요' : (sated? ('😴 포만감 '+Math.ceil(pet.satietyLeft)+'초 유지') : (c.abilityEmoji+' '+c.abilityName)),
+      };
+    });
+  }
+
+  petPlotTarget(){
+    const T=this.TILE, pl=this.myPlot;
+    const x0=pl.x+1.5, y0=pl.y+2, w=pl.w-4, h=pl.h-4;
+    return { tx:(x0+Math.random()*w)*T, ty:(y0+Math.random()*h)*T };
+  }
+  syncPets(){
+    const cfg=this.equippedConfig();
+    const sig=cfg.map(c=>c.id+c.ability).join(',');
+    if(sig===this.petSig) return;
+    this.petSig=sig;
+    const T=this.TILE;
+    this.pets=cfg.map((c,i)=>{
+      const t=this.petPlotTarget();
+      const sx=(this.myPlot.x+2+i*1.6)*T, sy=(this.myPlot.y+3+i*1.8)*T;
+      return {...c, x:sx, y:sy, tx:t.tx, ty:t.ty, anim:Math.random()*4, dir:1, moving:false, wait:20+Math.random()*70, aTimer:Math.random()*10, hTimer:Math.random()*2, hunger:100, satietyLeft:0, starving:false};
+    });
+  }
+  updatePets(dt){
+    if(!window.LumiaPets || !this.myPlot) return;
+    this.syncPets();
+    const ds=dt/60;
+    for(const pet of this.pets){
+      if(pet.satietyLeft>0){ pet.satietyLeft=Math.max(0,pet.satietyLeft-ds); }
+      else {
+        const drainSecs=(this.GRADE_DRAIN[pet.grade]||1800)/this.HUNGER_DEMO;
+        pet.hunger=Math.max(0,(pet.hunger==null?100:pet.hunger)-ds*(100/drainSecs));
+      }
+      const wasStarving=pet.starving;
+      pet.starving=pet.hunger<=0;
+      if(pet.starving){
+        // 배고파서 일을 안 하고 그 자리에 멈춤
+        pet.moving=false;
+        pet.anim+=dt*0.04;
+        if(!wasStarving) this.flash('😢 '+pet.name+' 이(가) 배고파요! 목록을 눌러 먹이를 주세요');
+        continue;
+      }
+      const dx=pet.tx-pet.x, dy=pet.ty-pet.y, d=Math.hypot(dx,dy);
+      if(d>2){
+        const step=Math.min(d, 1.15*dt);
+        pet.x+=dx/d*step; pet.y+=dy/d*step; pet.moving=true;
+        if(dx<-0.4) pet.dir=-1; else if(dx>0.4) pet.dir=1;
+      } else {
+        pet.moving=false; pet.wait-=dt;
+        if(pet.wait<=0){ const t=this.petPlotTarget(); pet.tx=t.tx; pet.ty=t.ty; pet.wait=30+Math.random()*90; }
+      }
+      pet.anim += pet.moving ? dt*0.2 : dt*0.05;
+      this.petTick(pet, ds);
+    }
+  }
+
+  // items the player owns that are edible for this grade, with per-item effect
+  feedListFor(grade, petIndex){
+    const gi=this.gradeIndex(grade), C=window.LumiaCrops;
+    // aggregate inventory counts by key
+    const owned={};
+    for(const s of this.state.inv){ if(s) owned[s.key]=(owned[s.key]||0)+s.count; }
+    const list=[];
+    if(C){
+      for(const f of C.FEED){
+        const cnt=owned[f.id]||0; if(cnt<=0) continue;
+        const fill=(this.FEEDMAP[f.id]||{hunger:[0,0,0,0]}).hunger[gi];
+        const sat=(this.FEEDMAP[f.id]||{satiety:[0,0,0,0]}).satiety[gi];
+        const cr=this.CROPINFO[f.id]||{};
+        const usable=fill>0;
+        list.push({
+          key:f.id, name:cr.name||f.id, count:this.fmt(cnt), usable,
+          iconEl:this.imgEl(cr.iconCrop,'26px'),
+          fillText: usable? ('+'+fill+' 배고픔') : '이 등급엔 효과 없음',
+          satText: usable? ('포만감 '+sat+'초') : '',
+          fillColor: usable? '#7fd14f' : '#c98a6a',
+          rowBg: usable? 'rgba(255,244,221,.06)' : 'rgba(120,90,55,.12)',
+          opacity: usable? 1 : 0.5,
+          onPick:(e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); if(usable) this.feedPetWith(petIndex, f.id); },
+          cursor: usable? 'pointer' : 'default',
+        });
+      }
+    }
+    // effective foods first, then by fill desc
+    list.sort((a,b)=> (b.usable-a.usable));
+    return list;
+  }
+  feedPetWith(petIndex, key){
+    const pet=this.pets && this.pets[petIndex];
+    if(!pet){ return; }
+    if(pet.hunger>=100){ this.flash(pet.name+' 은(는) 배가 불러요', false); this.setState({feedPickIdx:null}); return; }
+    const gi=this.gradeIndex(pet.grade);
+    const fill=(this.FEEDMAP[key]||{hunger:[0,0,0,0]}).hunger[gi];
+    const sat=(this.FEEDMAP[key]||{satiety:[0,0,0,0]}).satiety[gi];
+    if(fill<=0){ this.flash('🚫 '+(this.CROPINFO[key]||{}).name+'(으)론 '+this.gradeLabel(pet.grade)+' 펫을 못 채워요', false); return; }
+    const inv=this.state.inv.map(s=>s?{...s}:null);
+    const fi=inv.findIndex(s=>s && s.key===key && s.count>0);
+    if(fi<0){ this.flash('먹이가 없어요', false); this.setState({feedPickIdx:null}); return; }
+    inv[fi].count-=1; if(inv[fi].count<=0) inv[fi]=null;
+    pet.hunger=Math.min(100, pet.hunger+fill);
+    pet.satietyLeft=sat; pet.starving=false;
+    this.setState({inv, feedPickIdx:null});
+    this.burst(pet.x/this.TILE, pet.y/this.TILE, '#ff9db0', 8);
+    const fname=(this.CROPINFO[key]||{}).name;
+    const ficon=this.imgEl((this.CROPINFO[key]||{}).iconCrop,'20px');
+    this.petLog(pet, '를 먹였어요', fname, ficon, '+'+fill+' 배고픔 · 포만감 '+sat+'초', '#ffb066');
+  }
+
+  feedPet(index){
+    const pet=this.pets && this.pets[index];
+    if(!pet){ return; }
+    if(pet.hunger>=100){ this.flash(pet.name+' 은(는) 배가 불러요', false); return; }
+    const gi=this.gradeIndex(pet.grade);
+    const inv=this.state.inv.map(s=>s?{...s}:null);
+    // 이 등급에게 효과가 있는 먹이 작물 우선 탐색
+    let fi=inv.findIndex(s=>s && this.FEEDMAP[s.key] && this.FEEDMAP[s.key].hunger[gi]>0);
+    if(fi<0){
+      const anyFeed=inv.findIndex(s=>s && this.FEEDMAP[s.key]);
+      if(anyFeed<0){ this.flash('먹이가 없어요 — 먹이 작물을 수확해 오세요', false); return; }
+      this.flash('🚫 '+this.CROPINFO[inv[anyFeed].key].name+'(으)론 '+this.gradeLabel(pet.grade)+' 펫을 못 채워요', false); return;
+    }
+    const item=inv[fi], key=item.key;
+    const fill=this.FEEDMAP[key].hunger[gi], sat=this.FEEDMAP[key].satiety[gi];
+    item.count-=1; if(item.count<=0) inv[fi]=null;
+    pet.hunger=Math.min(100, pet.hunger+fill);
+    pet.satietyLeft=sat; pet.starving=false;
+    this.setState({inv});
+    this.burst(pet.x/this.TILE, pet.y/this.TILE, '#ff9db0', 8);
+    this.flash('🍽️ '+pet.name+' → '+this.CROPINFO[key].name+' +'+fill+' 배고픔 · 포만감 '+sat+'초');
+  }
+  petTick(pet, ds){
+    if(pet.ability==='harvest'){ pet.hTimer+=ds; if(pet.hTimer>=2.4){ pet.hTimer=0; this.petHarvest(pet); } }
+    else if(pet.ability==='seed'){ pet.aTimer+=ds; if(pet.aTimer>=25){ pet.aTimer=0; this.petSeed(pet); } }
+    else if(pet.ability==='coin'){ pet.aTimer+=ds; if(pet.aTimer>=30){ pet.aTimer=0; this.petCoin(pet); } }
+  }
+  petHarvest(pet){
+    const T=this.TILE, gx=pet.x/T, gy=pet.y/T;
+    const c=this.crops.find(c=>c.ready && Math.abs(c.gx+.5-gx)<2.6 && Math.abs(c.gy+.5-gy)<2.6);
+    if(!c) return;
+    const inv=this.state.inv.map(s=>s?{...s}:null);
+    if(this.addItem(inv, c.crop, 1)){
+      this.burst(c.gx+.5, c.gy+.5, '#ffe14d', 12);
+      this.harvestReset(c);
+      this.setState({inv});
+      const info=this.CROPINFO[c.crop]||{};
+      this.petLog(pet, '가 수확했어요', info.name, this.imgEl(info.iconCrop,'20px'), (info.regrow?'♻ 재성장 시작':''), '#7fd14f');
+    }
+  }
+  petSeed(pet){
+    const keys=Object.keys(this.CROPINFO), k=keys[Math.floor(Math.random()*keys.length)];
+    const inv=this.state.inv.map(s=>s?{...s}:null);
+    if(this.addItem(inv, k, 1)){ this.setState({inv}); this.burst(pet.x/this.TILE, pet.y/this.TILE, '#8fd14f', 8); const info=this.CROPINFO[k]||{}; this.petLog(pet, '가 씨앗을 찾았어요', info.name, this.imgEl(info.iconCrop,'20px'), '', '#8fd14f'); }
+  }
+  petCoin(pet){
+    const g=15+Math.floor(Math.random()*20);
+    this.setState(s=>({gold:s.gold+g}));
+    this.burst(pet.x/this.TILE, pet.y/this.TILE, '#f7d271', 8);
+    this.petLog(pet, '가 동전을 주웠어요', '+'+g+' G', null, '', '#f7d271');
   }
 
   componentDidMount(){
+    this.buildCropInfo();
     const cv = this.canvasRef.current;
     this.ctx = cv.getContext('2d');
     this.ctx.imageSmoothingEnabled = false;
@@ -324,6 +775,7 @@ class Component extends DCLogic {
       this.keys[k] = true;
       if (k==='e'){ this.interact(); }
       if (/^[0-9]$/.test(k)){ this.selectSlot(k==='0'?9:(+k-1)); }
+      if (k==='x'){ this.digUp(); }
       if (['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
     };
     this.onKeyUp = e => { this.keys[e.key.toLowerCase()] = false; };
@@ -406,7 +858,7 @@ class Component extends DCLogic {
       }
       // plant crops on open soil
       if (!o.allLocked){
-        const types=['carrot','wheat','strawberry','pumpkin','star'];
+        const types=(this.CROP_IDS&&this.CROP_IDS.length)?this.CROP_IDS:['carrot'];
         const density = o.mine? .8 : .55;
         for (let y=py+1; y<py+ph-1; y++) for (let x=px+1; x<px+pw-1; x++){
           if (!g[y]||!g[y][x]||g[y][x].t!=='soil') continue;
@@ -598,16 +1050,21 @@ class Component extends DCLogic {
     this.cam.y = Math.max(0, Math.min(this.H*this.TILE - this.VH, this.cam.y));
     // others wander a touch
     this.others.forEach((o,i)=>{ o.anim+=dt; o.x += Math.sin(this.t*.01+i)*.15; });
-    // crop growth (dt is in 60fps frames → seconds = dt/60)
-    const ds = dt/60;
+    // crop growth (dt is in 60fps frames → seconds = dt/60), demo-scaled
+    const ds = dt/60, gs = ds*this.GROW_SCALE;
     for (const c of this.crops){
       if (c.ready) continue;
       if (c.growLeft===undefined){ c.secTotal=(this.CROPINFO[c.crop]||{secs:240}).secs; c.growLeft=c.secTotal/3; }
-      c.growLeft -= ds;
+      c.growLeft -= gs;
       if (c.growLeft<=0){ if (c.stage<2){ c.stage++; c.growLeft=c.secTotal/3; } else { c.ready=true; c.growLeft=0; } }
     }
     // particles
     for (let i=this.particles.length-1;i>=0;i--){ const pa=this.particles[i]; pa.x+=pa.vx*dt; pa.y+=pa.vy*dt; pa.life-=dt; if(pa.life<=0) this.particles.splice(i,1); }
+    // ---- companion pets wander inside the player's own farm plot ----
+    this.updatePets(dt);
+    // 사이드 배고픔 바가 부드럽게 움직이도록 주기적 HUD 갱신
+    this.hudTimer=(this.hudTimer||0)+dt;
+    if(this.hudTimer>=18){ this.hudTimer=0; this.forceUpdate(); }
     this.detectHint();
   }
 
@@ -628,12 +1085,12 @@ class Component extends DCLogic {
       const crop = this.crops.find(c=>c.gx===gx&&c.gy===gy);
       if (crop){
         const info=this.CROPINFO[crop.crop]||{name:'',emoji:'❔'};
-        if (crop.ready){ hint={text:'수확하기', key:'E'}; this.nearCrop=crop; this.nearEmpty=null; tip={emoji:info.emoji, name:info.name, ready:true, time:''}; }
+        if (crop.ready){ hint={text:'수확하기', key:'E'}; this.nearCrop=crop; this.nearEmpty=null; tip={emoji:info.emoji, icon:info.iconCrop||null, name:info.name, ready:true, time:''}; }
         else {
           this.nearCrop=null; this.nearEmpty=null;
           const per=crop.secTotal/3;
           const totalLeft = (2-crop.stage)*per + crop.growLeft;
-          tip={emoji:info.emoji, name:info.name, ready:false, time:this.fmtTime(totalLeft)};
+          tip={emoji:info.emoji, icon:info.iconCrop||null, name:info.name, ready:false, time:this.fmtTime(totalLeft)};
         }
       } else if (cell && cell.t==='soil'){ hint={text:'씨앗 심기', key:'E'}; this.nearEmpty={gx,gy}; this.nearCrop=null; }
       else { this.nearCrop=null; this.nearEmpty=null; }
@@ -663,15 +1120,21 @@ class Component extends DCLogic {
     if (this.nearBuilding){ this.openShop(this.nearBuilding.kind); return; }
     if (!this.nearCrop && !this.nearEmpty){ this.openShop('inventory'); return; }
     if (this.nearCrop && this.nearCrop.ready){
-      const c=this.nearCrop; c.ready=false; c.stage=0;
-      this.burst(c.gx+.5, c.gy+.5, '#ffe14d', 14);
+      const c=this.nearCrop;
       const inv=this.state.inv.map(s=>s?{...s}:null);
-      const ok=this.addItem(inv, c.crop, 1);
-      if (ok){ this.setState({inv}); this.flash('+1 '+this.CROPINFO[c.crop].name); }
-      else { this.flash('인벤토리가 가득 찼어요', false); }
+      if (!this.addItem(inv, c.crop, 1)){ this.flash('인벤토리가 가득 찼어요', false); return; }
+      this.burst(c.gx+.5, c.gy+.5, '#ffe14d', 14);
+      const info=this.CROPINFO[c.crop]||{};
+      this.harvestReset(c);
+      this.setState({inv});
+      this.flash('+1 '+(info.name||'') + (info.regrow?' · ♻ 재성장 시작':''));
     } else if (this.nearEmpty){
-      this.crops.push({gx:this.nearEmpty.gx, gy:this.nearEmpty.gy, crop:'carrot', stage:0, ready:false, sway:Math.random()*6.28, secTotal:this.CROPINFO.carrot.secs, growLeft:this.CROPINFO.carrot.secs/3});
+      const sel=this.state.inv[this.state.sel];
+      const key=(sel && this.CROPINFO[sel.key])?sel.key:'carrot';
+      const info=this.CROPINFO[key]||this.CROPINFO.carrot;
+      this.crops.push({gx:this.nearEmpty.gx, gy:this.nearEmpty.gy, crop:key, stage:0, ready:false, sway:Math.random()*6.28, secTotal:info.secs, growLeft:info.secs/3});
       this.burst(this.nearEmpty.gx+.5, this.nearEmpty.gy+.5, '#8fd14f', 8);
+      this.flash('🌱 '+info.name+' 심었어요');
     }
   }
 
@@ -703,6 +1166,22 @@ class Component extends DCLogic {
     this.setState({ toast:{msg, ok} });
     clearTimeout(this._toastT);
     this._toastT = setTimeout(()=>this.setState({toast:null}), 1600);
+  }
+
+  // world event log shown above the hotbar (stacked, auto-expiring)
+  logEvent(entry){
+    const id = this._logId = (this._logId||0)+1;
+    this.setState(s=>({ gameLog:[...(s.gameLog||[]).slice(-3), {...entry, id}] }));
+    setTimeout(()=>{ this.setState(s=>({ gameLog:(s.gameLog||[]).filter(e=>e.id!==id) })); }, 3600);
+  }
+  petLog(pet, verb, itemName, itemIconEl, tail, color){
+    this.logEvent({
+      petIconEl: this.imgEl(this.renderPetIcon(pet.id),'22px'),
+      name: pet.name,
+      verb, itemName, itemIconEl,
+      tail: tail||'',
+      color: color||'#ffd98a',
+    });
   }
 
   buy(cost, cur, label){
@@ -856,33 +1335,41 @@ class Component extends DCLogic {
   }
 
   drawCrops(x,ox,oy){
-    const T=this.TILE, pal=this.cropPalette();
-    // sort by y so taller plants overlap correctly
+    const T=this.TILE, C=window.LumiaCrops;
     const list=[...this.crops].sort((a,b)=>a.gy-b.gy);
     for (const c of list){
       const cx=c.gx*T+ox+T/2;
       const cy=c.gy*T+oy+T/2;
-      const p=pal[c.crop]||pal.carrot;
       const bob = c.ready ? Math.sin(this.t*.08 + c.sway)*2 : 0;
-      const sway = Math.sin(this.t*.035 + c.sway)*(c.stage>0?1.4:0.6);
       // mound shadow
       x.fillStyle='rgba(40,22,8,.30)'; x.beginPath(); x.ellipse(cx,cy+11,9,3.4,0,0,6.28); x.fill();
-      // ready glow + ring
+      // ready glow
       if (c.ready){
         const gl=0.5+0.5*Math.sin(this.t*.08+c.sway);
-        const rg=x.createRadialGradient(cx,cy+bob-2,1,cx,cy+bob-2,18);
-        rg.addColorStop(0,`rgba(255,232,120,${.34+gl*.18})`); rg.addColorStop(1,'rgba(255,232,120,0)');
-        x.fillStyle=rg; x.fillRect(cx-18,cy+bob-20,36,36);
+        const rg=x.createRadialGradient(cx,cy+bob-6,1,cx,cy+bob-6,20);
+        rg.addColorStop(0,`rgba(255,232,120,${.32+gl*.18})`); rg.addColorStop(1,'rgba(255,232,120,0)');
+        x.fillStyle=rg; x.fillRect(cx-20,cy+bob-26,40,42);
       }
-      x.save(); x.translate(cx, cy+bob); x.translate(sway,0);
-      this.drawPlant(x, c.crop, c.stage, c.ready, p);
-      x.restore();
+      if (C){
+        if (c.stage<=0){ this.drawSprout(x, cx, cy+11); }
+        else {
+          const scale = c.stage===1 ? 0.7 : (c.ready ? 1.05 : 0.92);
+          if(!c.ready) x.globalAlpha=0.92;
+          C.drawCrop(x, c.crop, cx, cy+11+bob, scale, {t:this.t*.05, mound:false, phase:c.sway});
+          x.globalAlpha=1;
+        }
+      }
       // harvest sparkles
       if (c.ready && this.rnd(c.gx,c.gy, Math.floor(this.t*.1))>.6){
-        const sx=cx+(this.rnd(c.gx,c.gy,7)-.5)*22, sy=cy+bob-12-this.rnd(c.gy,c.gx,8)*10;
+        const sx=cx+(this.rnd(c.gx,c.gy,7)-.5)*22, sy=cy+bob-14-this.rnd(c.gy,c.gx,8)*10;
         this.drawSparkle(x,sx,sy, 2+this.rnd(c.gx,c.gy,9)*2);
       }
     }
+  }
+  drawSprout(x,cx,gy){
+    x.fillStyle='#5e371b'; x.fillRect(cx-1,gy-6,2,6);
+    x.fillStyle='#6cc23e'; x.fillRect(cx-1,gy-9,2,4);
+    x.fillStyle='#8ad055'; x.fillRect(cx-5,gy-8,4,2); x.fillRect(cx+1,gy-10,4,2);
   }
 
   // draws a plant centred at (0,0), baseline ~ y=10
@@ -948,9 +1435,37 @@ class Component extends DCLogic {
     const ents=[
       ...this.others.map(o=>({x:o.x,y:o.y,color:o.color,name:o.name,me:false,anim:o.anim,moving:true,dir:1})),
       {x:this.player.x,y:this.player.y,color:'#ffcf6e',name:this.state.name,me:true,anim:this.player.anim,moving:this.player.moving,dir:this.player.dir},
-    ].sort((a,b)=>a.y-b.y);
-    for (const e of ents){ this.drawChar(x, e.x+ox, e.y+oy, e.color, e.name, e.me, e.anim, e.moving, e.dir); }
+    ];
+    const P=window.LumiaPets;
+    if (P && this.pets) for(const pet of this.pets) ents.push({type:'pet', pet, x:pet.x, y:pet.y, anim:pet.anim, moving:pet.moving});
+    ents.sort((a,b)=>a.y-b.y);
+    for (const e of ents){
+      if (e.type==='pet'){
+        const fi=P.frameForMotion(e.moving, e.anim);
+        const px=Math.round(e.x+ox), py=Math.round(e.y+oy);
+        P.drawPet(x, e.pet.id, px, py, fi, 1.35, {t:this.t*0.05, aura:e.pet.starving?null:e.pet.ability, badge:!e.pet.starving});
+        if(e.pet.starving) this.drawHungryBubble(x, px, py-46);
+      } else {
+        this.drawChar(x, e.x+ox, e.y+oy, e.color, e.name, e.me, e.anim, e.moving, e.dir);
+      }
+    }
   }
+
+  drawHungryBubble(x, cx, cy){
+    const bob=Math.sin(this.t*.12)*1.5;
+    const y=cy+bob;
+    x.font="700 11px 'Noto Sans KR', sans-serif"; x.textAlign='center';
+    const txt='😢 배고파요';
+    const w=x.measureText(txt).width+16, h=19;
+    x.fillStyle='rgba(60,30,18,.92)';
+    this.rrect(x, cx-w/2, y-h, w, h, 6); x.fill();
+    x.strokeStyle='rgba(255,150,120,.7)'; x.lineWidth=1.4; this.rrect(x, cx-w/2, y-h, w, h, 6); x.stroke();
+    // tail
+    x.fillStyle='rgba(60,30,18,.92)'; x.beginPath(); x.moveTo(cx-4,y-1); x.lineTo(cx+4,y-1); x.lineTo(cx,y+4); x.closePath(); x.fill();
+    x.fillStyle='#ffe0d0'; x.fillText(txt, cx, y-5);
+    x.textAlign='left';
+  }
+  rrect(x,a,b,w,h,r){ x.beginPath(); x.moveTo(a+r,b); x.arcTo(a+w,b,a+w,b+h,r); x.arcTo(a+w,b+h,a,b+h,r); x.arcTo(a,b+h,a,b,r); x.arcTo(a,b,a+w,b,r); x.closePath(); }
 
   drawChar(x,px,py,color,name,me,anim,moving,dir){
     const hop = moving ? Math.abs(Math.sin(anim*Math.PI))*3 : Math.sin(this.t*.05)*1;
@@ -1003,6 +1518,82 @@ class Component extends DCLogic {
 
   fmt(n){ return n.toLocaleString('en-US'); }
 
+  imgEl(src, size){
+    if(!src) return null;
+    return React.createElement('img', {src, style:{width:size, height:size, objectFit:'contain', imageRendering:'pixelated'}});
+  }
+
+  // ---- inventory drag-reorder + hotbar marking + hover tooltip ----
+  reorderInv(from, to){
+    if(from==null||to==null||from===to) return;
+    const inv=this.state.inv.slice();
+    const item=inv[from];
+    inv.splice(from,1);
+    inv.splice(to,0,item);
+    this.setState({inv, invDrag:null, invOver:null, invHover:null});
+  }
+  invSlotData(){
+    const HOT=10; // first row = hotbar slots
+    return this.state.inv.map((sl,i)=>{
+      const c = sl ? (this.CROPINFO[sl.key]||{}) : null;
+      const tierName = c&&window.LumiaCrops&&window.LumiaCrops.TIERS[c.tier] ? window.LumiaCrops.TIERS[c.tier].name : '';
+      const isHot = i<HOT;
+      const hotKey = i===9?'0':String(i+1);
+      const feed = c&&this.FEEDMAP[sl&&sl.key] ? '동물 먹이 가능' : '';
+      return {
+        idx:i,
+        iconEl: sl ? this.imgEl(c.iconCrop,'76%') : null,
+        count: sl ? this.fmt(sl.count) : '',
+        hasCount: !!sl,
+        empty: !sl,
+        isHot,
+        hotKey,
+        hotShow: isHot && !!sl,
+        bg: sl ? '#fbf3e2' : (isHot?'rgba(240,169,74,.10)':'rgba(120,90,55,.10)'),
+        ring: this.state.invOver===i ? '#5fa233' : (sl ? (isHot?'#e6b25e':'#e0caa0') : (isHot?'rgba(224,138,74,.32)':'rgba(140,110,70,.22)')),
+        dragging: this.state.invDrag===i,
+        draggable: !!sl,
+        cursor: sl ? 'grab' : 'default',
+        dragOpacity: this.state.invDrag===i ? 0.35 : 1,
+        hoverShadow: sl ? 'box-shadow:inset 0 0 0 2px #c8a85e; transform:translateY(-1px);' : '',
+        tipHotColor: isHot ? '#7fd14f' : '#c98a6a',
+        onDragStart:(e)=>{ if(!sl){e.preventDefault();return;} try{e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',String(i));}catch(_){}; this.setState({invDrag:i, invHover:null, invHoverBox:null}); },
+        onDragEnter:(e)=>{ e.preventDefault(); if(this.state.invDrag!=null && this.state.invOver!==i) this.setState({invOver:i}); },
+        onDragOver:(e)=>{ e.preventDefault(); try{e.dataTransfer.dropEffect='move';}catch(_){} },
+        onDrop:(e)=>{ e.preventDefault(); const from=this.state.invDrag; this.reorderInv(from, i); },
+        onDragEnd:()=>this.setState({invDrag:null, invOver:null}),
+        onMouseEnter:(e)=>{ if(sl && this.state.invDrag==null){ const el=e.currentTarget; const r=el.getBoundingClientRect(); const ov=el.closest('[data-modal-overlay]'); const o=ov?ov.getBoundingClientRect():{left:0,top:0,width:800,height:600}; this.setState({invHover:i, invHoverBox:{left:r.left-o.left, top:r.top-o.top, w:r.width, h:r.height, ovW:o.width, ovH:o.height}}); } },
+        onMouseLeave:()=>{ if(this.state.invHover===i) this.setState({invHover:null, invHoverBox:null}); },
+      };
+    });
+  }
+
+  invTipData(){
+    const i=this.state.invHover, box=this.state.invHoverBox;
+    if(i==null || !box) return {show:false};
+    const sl=this.state.inv[i]; if(!sl) return {show:false};
+    const c=this.CROPINFO[sl.key]||{};
+    const T=window.LumiaCrops&&window.LumiaCrops.TIERS[c.tier];
+    const tipW=196, tipH=112, gap=8;
+    let left = box.left + box.w/2 - tipW/2;
+    left = Math.max(6, Math.min(left, box.ovW - tipW - 6));
+    const below = (box.top + box.h + gap + tipH) <= box.ovH - 4;
+    const top = below ? (box.top + box.h + gap) : Math.max(6, box.top - tipH - gap);
+    const isHot = i<10, hotKey=i===9?'0':String(i+1);
+    return {
+      show:true,
+      left:left+'px', top:top+'px', width:tipW+'px',
+      name:c.name||'', count:this.fmt(sl.count),
+      iconEl:this.imgEl(c.iconCrop,'30px'),
+      tier:c.tier||'', tierName:T?T.name:'', tierColor:T?T.color:'#7fa844',
+      regrow: c.regrow ? ('♻ 재성장 '+c.regrow) : '단일 수확',
+      sell: '🪙 '+this.fmt(c.sell||0),
+      feed: this.FEEDMAP[sl.key] ? '🍖 먹이 가능' : '',
+      hot: isHot ? ('핫바 '+hotKey+'번') : '핫바 밖',
+      hotColor: isHot ? '#7fd14f' : '#c98a6a',
+    };
+  }
+
   renderVals(){
     const kind = this.state.shopKind;
     const meta = kind ? this.SHOPMETA[kind] : null;
@@ -1012,18 +1603,18 @@ class Component extends DCLogic {
     let buyItems=[];
     if (kind==='seed'){
       buyItems = Object.keys(this.CROPINFO).map(k=>{ const c=this.CROPINFO[k]; const cu=cur(c.luna?'luna':'gold');
-        return {emoji:c.emoji, name:c.name+' 씨앗', sub:'성장 '+c.grow, price:this.fmt(c.seed), curIcon:cu.icon, curColor:cu.color, onBuy:()=>this.buySeed(k)}; });
+        return {emoji:c.emoji, iconEl:this.imgEl(c.iconSeed,'40px'), noIcon:!c.iconSeed, name:c.name+' 씨앗', sub:'['+c.tier+'] 성장 '+c.grow+(c.regrow?(' · ♻'+c.regrow):''), price:this.fmt(c.seed), curIcon:cu.icon, curColor:cu.color, onBuy:()=>this.buySeed(k)}; });
     } else if (kind==='petbuy'){
-      buyItems = this.PETS.map(p=>{ const cu=cur(p.cur); return {emoji:p.emoji, name:p.name, sub:p.desc, price:this.fmt(p.price), curIcon:cu.icon, curColor:cu.color, onBuy:()=>this.buyPet(p)}; });
+      buyItems = this.PETS.map(p=>{ const cu=cur(p.cur); return {emoji:p.emoji, iconEl:null, noIcon:true, name:p.name, sub:p.desc, price:this.fmt(p.price), curIcon:cu.icon, curColor:cu.color, onBuy:()=>this.buyPet(p)}; });
     }
 
     // sell list (sell crops / petsell)
     let sellItems=[], sellTotal=0, isPetSell = kind==='petsell';
     if (kind==='sell'){
       sellItems = Object.keys(this.CROPINFO).map(k=>{ const c=this.CROPINFO[k]; const n=this.countKey(this.state.inv,k); sellTotal += n*c.sell;
-        return {emoji:c.emoji, name:c.name, count:n, price:this.fmt(c.sell), dimOpacity:n<=0?0.45:1, onSell:()=>this.sellCrop(k,false), onSellAll:()=>this.sellCrop(k,true)}; });
+        return {emoji:c.emoji, iconEl:this.imgEl(c.iconCrop,'36px'), noIcon:!c.iconCrop, name:c.name, count:n, price:this.fmt(c.sell), dimOpacity:n<=0?0.45:1, onSell:()=>this.sellCrop(k,false), onSellAll:()=>this.sellCrop(k,true)}; });
     } else if (kind==='petsell'){
-      sellItems = this.PETS.slice(0,2).map(p=>({emoji:p.emoji, name:p.name, count:1, price:this.fmt(Math.floor(p.price*0.6)), dimOpacity:1, onSell:()=>this.flash(p.name+' 판매 완료!'), onSellAll:()=>this.flash(p.name+' 판매 완료!')}));
+      sellItems = this.PETS.slice(0,2).map(p=>({emoji:p.emoji, iconEl:null, noIcon:true, name:p.name, count:1, price:this.fmt(Math.floor(p.price*0.6)), dimOpacity:1, onSell:()=>this.flash(p.name+' 판매 완료!'), onSellAll:()=>this.flash(p.name+' 판매 완료!')}));
     }
 
     // upgrade / hire rows
@@ -1034,14 +1625,14 @@ class Component extends DCLogic {
           price:this.fmt(u.cost), curIcon:cu.icon, curColor:cu.color, maxed, btnText: kind==='hire'?'고용':'강화', onDo:()=>this.doUpgrade(u)}; });
     }
 
-    // slot renderer
+  // slot renderer
     const slotView = (arr, onClick) => arr.map((sl,i)=>{
-      if (sl){ const c=this.CROPINFO[sl.key]||{emoji:'❔',name:''}; return {emoji:c.emoji, count:this.fmt(sl.count), hasCount:true, empty:false, bg:'#fbf3e2', ring:'#e0caa0', cursor:'pointer', hoverStyle:'filter:brightness(1.06); box-shadow:inset 0 0 0 2px #c8a85e;', onClick:(e)=>onClick(i, e)}; }
-      return {emoji:'', count:'', hasCount:false, empty:true, bg:'rgba(120,90,55,.10)', ring:'rgba(140,110,70,.22)', cursor:'default', hoverStyle:'', onClick:()=>{}};
+      if (sl){ const c=this.CROPINFO[sl.key]||{emoji:'❔',name:''}; return {emoji:c.emoji, iconEl:this.imgEl(c.iconCrop,'76%'), count:this.fmt(sl.count), hasCount:true, empty:false, bg:'#fbf3e2', ring:'#e0caa0', cursor:'pointer', hoverStyle:'filter:brightness(1.06); box-shadow:inset 0 0 0 2px #c8a85e;', onClick:(e)=>onClick(i, e)}; }
+      return {emoji:'', iconEl:null, count:'', hasCount:false, empty:true, bg:'rgba(120,90,55,.10)', ring:'rgba(140,110,70,.22)', cursor:'default', hoverStyle:'', onClick:()=>{}};
     });
     // full inventory grid (inventory modal)
     let invSlots=[];
-    if (kind==='inventory') invSlots = slotView(this.state.inv, ()=>{});
+    if (kind==='inventory') invSlots = this.invSlotData();
     // storage transfer: inv (deposit) + sto (withdraw)
     let depoSlots=[], withSlots=[];
     if (kind==='storage'){
@@ -1054,6 +1645,8 @@ class Component extends DCLogic {
       canvasRef: this.canvasRef,
       playerName: this.state.name,
       farmLevel: this.state.farmLevel,
+      equipped: this.equippedHud(),
+      petCountText: this.equippedConfig().length,
       goldText: this.fmt(this.state.gold),
       lunaText: this.fmt(this.state.luna),
       showHint: this.state.showHint && !this.state.shopKind,
@@ -1070,10 +1663,10 @@ class Component extends DCLogic {
       isInv: meta?meta.layout==='inv':false,
       isStore: meta?meta.layout==='store':false,
       buyItems, sellItems, sellTotal:this.fmt(sellTotal), isPetSell, upgRows,
-      invSlots, depoSlots, withSlots,
+      invSlots, depoSlots, withSlots, invTip: (kind==='inventory'? this.invTipData() : {show:false}),
       // hotbar (always visible)
       hotbar: this.state.inv.slice(0,10).map((sl,i)=>{ const c=sl?(this.CROPINFO[sl.key]||{emoji:'❔'}):null;
-        return {emoji:c?c.emoji:'', count:sl?this.fmt(sl.count):'', hasCount:!!sl, num: i===9?'0':String(i+1),
+        return {emoji:c?c.emoji:'', iconEl:c?this.imgEl(c.iconCrop,'36px'):null, count:sl?this.fmt(sl.count):'', hasCount:!!sl, num: i===9?'0':String(i+1),
           selBg: i===this.state.sel?'#fff4dd':'rgba(20,12,6,.5)', selRing: i===this.state.sel?'#ffd98a':'rgba(255,244,221,.25)', selScale: i===this.state.sel?'1.12':'1'}; }),
       closeShop: this.closeShop,
       onSellAll: ()=>this.sellAll(),
@@ -1098,6 +1691,7 @@ class Component extends DCLogic {
       // crop tooltip
       cropTipShow: this.state.cropTip.show && !this.state.shopKind,
       cropTipEmoji: this.state.cropTip.emoji||'',
+      cropTipIconEl: this.imgEl(this.state.cropTip.icon,'22px'),
       cropTipName: this.state.cropTip.name||'',
       cropTipReady: !!this.state.cropTip.ready,
       cropTipGrowing: this.state.cropTip.show && !this.state.cropTip.ready,
@@ -1105,8 +1699,19 @@ class Component extends DCLogic {
       cropTipLeft: (this.state.cropTip.x||0)+'px',
       cropTipTop: ((this.state.cropTip.y||0)-52)+'px',
       toast: this.state.toast,
+      gameLog: (this.state.gameLog||[]).map(e=>({...e})),
       toastMsg: this.state.toast?this.state.toast.msg:'',
       toastBg: (this.state.toast && !this.state.toast.ok) ? '#c0463a' : '#4a8527',
+      // pet rename modal
+      renameOpen: this.state.renameIdx!=null,
+      renameText: this.state.renameText||'',
+      renameSpecies: (()=>{ const cfg=this.equippedConfig(); const p=cfg[this.state.renameIdx]; return p?p.species:''; })(),
+      renameEmoji: (()=>{ const cfg=this.equippedConfig(); const p=cfg[this.state.renameIdx]; return p?p.emoji:'🐾'; })(),
+      onRenameInput: (e)=>this.setState({renameText:e.target.value}),
+      onRenameKey: (e)=>{ if(e.key==='Enter'){ e.preventDefault(); this.commitRename(); } if(e.key==='Escape'){ this.closeRename(); } },
+      commitRename: ()=>this.commitRename(),
+      closeRename: ()=>this.closeRename(),
+      stop: (e)=>{ if(e&&e.stopPropagation)e.stopPropagation(); },
     };
   }
 }

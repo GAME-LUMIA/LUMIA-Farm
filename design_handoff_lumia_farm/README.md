@@ -1,5 +1,8 @@
 # Handoff: LUMIA Farm — Discord Activity 게임 화면
 
+> ⚠️ **먼저 `CHANGELOG.md`를 읽으세요.** 이 README는 초기 월드/이동/상점 시스템을 설명합니다.
+> 지난 핸드오프 이후 추가된 것들(**30종 작물·6티어·재성장·삽 캐기, 픽셀 아트 아이콘, 동물 먹이/배고픔, 펫 커스텀 이름·HUD 재설계, 이벤트 로그, 인벤 드래그정렬·툴팁, 반응형 예시**)은 `CHANGELOG.md`에 델타로 정리돼 있습니다. 최신 소스는 이 폴더의 `LUMIA Farm.dc.html` + `crops.js` + `pets.js` 입니다.
+
 ## Overview
 LUMIA Farm은 Discord 봇 **Activity(임베디드 앱)** 안에서 돌아가는 탑다운 2D 픽셀 농사 게임입니다.
 스타듀밸리 / 헤이데이 / Magic Garden 류의 따뜻하고 아기자기한 타일 기반 농장 룩이 목표입니다.
@@ -178,7 +181,12 @@ LUMIA Farm은 Discord 봇 **Activity(임베디드 앱)** 안에서 돌아가는 
 - **권장**: 타일셋 시트(잔디/흙/길/잠금/울타리), 작물 5종×3단계 스프라이트, 캐릭터 스프라이트(방향별+걷기 프레임), 상점/데코 스프라이트를 아티스트가 제작 → 동일 색/실루엣 유지.
 
 ## Files
-- `LUMIA Farm.dc.html` — 메인 월드 게임 화면(전체 로직: 월드 생성, 베이크, 게임 루프, 입력/이동, 드로잉).
+- **`CHANGELOG.md`** — ⭐ 지난 핸드오프 이후 변경분(작물 30종, 먹이/배고픔, 펫 이름/HUD, 이벤트 로그, 인벤 개편, 반응형). **먼저 읽을 것.**
+- `LUMIA Farm.dc.html` — 메인 월드 게임 화면(최신본; 30작물·먹이·펫HUD·이벤트로그·인벤개편 포함).
+- `crops.js` — 30종 작물 데이터 + 스프라이트 렌더러(`window.LumiaCrops`). 데이터 단일 출처.
+- `pets.js` — 펫 데이터 + 스프라이트 렌더러(`window.LumiaPets`).
+- `LUMIA Farm Crops.dc.html` — 작물 도감/스펙 시트(30종 티어·성장·재성장·먹이·배고픔 표).
+- `LUMIA Farm Responsive.dc.html` — 데스크톱/폰 반응형 레이아웃 예시(참고용).
 - `LUMIA Farm Design Spec.dc.html` — 월드 맵 개념도 + 1~20단계 농장지 진행 견본 + 범례.
 - `support.js` — 디자인 컴포넌트 런타임(참고용; 프로덕션 불필요).
 

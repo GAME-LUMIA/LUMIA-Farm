@@ -433,3 +433,107 @@ html, body { width: 100%; height: 100%; overflow: hidden; }
 .lumia-scroll::-webkit-scrollbar { width: 10px; }
 .lumia-scroll::-webkit-scrollbar-track { background: rgba(90, 61, 34, 0.15); border-radius: 5px; }
 .lumia-scroll::-webkit-scrollbar-thumb { background: #b9925a; border-radius: 5px; border: 2px solid #e9d6b0; }
+
+/* ============================================================
+   2026-07 핸드오프 델타: 픽셀 아이콘 / 펫 HUD / 이벤트 로그 /
+   먹이 피커 / 이름변경 모달 / 인벤 드래그·툴팁
+   ============================================================ */
+
+img.pix { image-rendering: pixelated; object-fit: contain; display: block; pointer-events: none; }
+.hotbar .slot img.pix, .inv-cell img.pix, .store-cell img.pix { margin: auto; }
+.hotbar-label .hl-emoji img.pix { display: inline-block; vertical-align: middle; }
+
+/* ---- 좌측 장착 펫 HUD ---- */
+.pet-hud {
+  position: absolute; top: 58px; left: 12px; z-index: 6;
+  display: flex; flex-direction: column; gap: 7px; width: 168px;
+  font-family: "Noto Sans KR", sans-serif;
+}
+.pet-hud .ph-title { font-family: "Press Start 2P", monospace; font-size: 7px; color: #ffd98a; letter-spacing: .5px; padding-left: 3px; text-shadow: 0 1px 2px rgba(0,0,0,.75); }
+.pet-card { position: relative; display: flex; flex-direction: column; gap: 6px; padding: 6px 7px 7px; border-radius: 10px; background: rgba(28,18,10,.82); }
+.pet-card .pc-row { display: flex; align-items: center; gap: 8px; }
+.pet-card .pc-av { width: 32px; height: 32px; flex-shrink: 0; border-radius: 8px; background: rgba(255,244,221,.13); box-shadow: inset 0 0 0 1px rgba(255,244,221,.18); display: flex; align-items: center; justify-content: center; }
+.pet-card .pc-body { display: flex; flex-direction: column; line-height: 1.2; min-width: 0; flex: 1; }
+.pet-card .pc-top { display: flex; align-items: center; gap: 4px; }
+.pet-card .pc-grade { font-family: "Press Start 2P", monospace; font-size: 6px; color: #fff; padding: 2px 4px; border-radius: 4px; flex-shrink: 0; }
+.pet-card .pc-name { color: #fff4dd; font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.pet-card .pc-rename { flex-shrink: 0; width: 16px; height: 16px; padding: 0; border: none; border-radius: 4px; background: rgba(255,244,221,.14); color: #ffd98a; font-size: 9px; line-height: 1; cursor: pointer; }
+.pet-card .pc-rename:hover { background: rgba(255,244,221,.3); }
+.pet-card .pc-pct { margin-left: auto; font-size: 8px; font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+.pet-card .pc-status { color: #c7a76a; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pet-card .pc-bar { margin-top: 3px; height: 6px; border-radius: 3px; background: rgba(0,0,0,.45); box-shadow: inset 0 0 0 1px rgba(255,244,221,.12); overflow: hidden; }
+.pet-card .pc-fill { height: 100%; border-radius: 3px; transition: width .25s linear; }
+.pet-card .pc-feed { width: 100%; padding: 6px 0; border: none; border-radius: 7px; background: linear-gradient(180deg,#f0894a,#d66a2f); color: #fff; font-family: "Noto Sans KR", sans-serif; font-weight: 800; font-size: 11px; letter-spacing: .5px; cursor: pointer; box-shadow: inset 0 2px 0 rgba(255,255,255,.3), 0 2px 0 #b5551f; }
+.pet-card .pc-feed:hover { filter: brightness(1.08); }
+.pet-card .pc-feed:active { transform: translateY(1px); }
+
+/* ---- 먹이 선택 피커 (펫 카드 오른쪽 팝업) ---- */
+.feed-pick { position: absolute; left: calc(100% + 8px); top: 0; z-index: 15; width: 196px; border-radius: 11px; background: rgba(28,18,10,.98); box-shadow: 0 10px 26px -6px rgba(0,0,0,.65), inset 0 0 0 1.5px rgba(200,169,110,.5); overflow: hidden; animation: fp-pop .12s ease; }
+@keyframes fp-pop { 0% { transform: scale(.9); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.feed-pick .fp-head { display: flex; align-items: center; justify-content: space-between; padding: 9px 11px 7px; background: rgba(240,137,74,.16); font-family: "Press Start 2P", monospace; font-size: 7px; color: #ffd98a; letter-spacing: .3px; }
+.feed-pick .fp-close { width: 16px; height: 16px; padding: 0; border: none; border-radius: 4px; background: rgba(255,244,221,.14); color: #ffd98a; font-size: 10px; line-height: 1; cursor: pointer; }
+.feed-pick .fp-list { max-height: 186px; overflow-y: auto; padding: 7px; }
+.feed-pick .fp-row { display: flex; align-items: center; gap: 8px; padding: 6px 7px; margin-bottom: 5px; border-radius: 8px; background: rgba(255,244,221,.06); cursor: pointer; }
+.feed-pick .fp-row:hover { filter: brightness(1.12); }
+.feed-pick .fp-row.off { background: rgba(120,90,55,.12); opacity: .5; cursor: default; }
+.feed-pick .fp-ic { width: 30px; height: 30px; flex-shrink: 0; border-radius: 7px; background: rgba(255,244,221,.1); display: flex; align-items: center; justify-content: center; }
+.feed-pick .fp-t { display: flex; flex-direction: column; gap: 1px; min-width: 0; flex: 1; }
+.feed-pick .fp-t b { color: #fff4dd; font-weight: 800; font-size: 12px; white-space: nowrap; }
+.feed-pick .fp-t b i { color: #c7a76a; font-weight: 600; font-size: 10px; font-style: normal; }
+.feed-pick .fp-fill { font-size: 9.5px; font-weight: 700; }
+.feed-pick .fp-sat { font-size: 9px; color: #c7a76a; white-space: nowrap; flex-shrink: 0; }
+.feed-pick .fp-empty { padding: 14px 8px; text-align: center; font-size: 10.5px; color: #c7a76a; line-height: 1.5; }
+
+/* ---- 우상단 이벤트 로그 ---- */
+.game-log { position: absolute; top: 88px; right: 16px; z-index: 8; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; pointer-events: none; font-family: "Noto Sans KR", sans-serif; }
+.log-pill { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 7px; border-radius: 20px; background: rgba(28,18,10,.9); box-shadow: 0 4px 12px -3px rgba(0,0,0,.55), inset 0 0 0 1.5px rgba(200,169,110,.45); white-space: nowrap; animation: log-in .25s cubic-bezier(.2,.9,.3,1.2); }
+@keyframes log-in { 0% { transform: translateX(16px) scale(.92); opacity: 0; } 100% { transform: translateX(0) scale(1); opacity: 1; } }
+.log-pill .lp-av { width: 26px; height: 26px; flex-shrink: 0; border-radius: 50%; background: rgba(255,244,221,.12); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.log-pill .lp-txt { font-size: 12.5px; color: #fff4dd; }
+.log-pill .lp-item { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.log-pill .lp-nm { font-size: 12.5px; font-weight: 800; color: #fff; }
+.log-pill .lp-tail { font-size: 11px; color: #c7a76a; }
+
+/* ---- 펫 이름 변경 모달 ---- */
+.rename-overlay { position: absolute; inset: 0; z-index: 24; display: flex; align-items: center; justify-content: center; background: rgba(18,12,6,.62); font-family: "Noto Sans KR", sans-serif; }
+.rename-overlay[hidden] { display: none; }
+.rename-card { width: 320px; border-radius: 16px; overflow: hidden; background: #efdcb8; box-shadow: 0 22px 60px -16px rgba(0,0,0,.7), 0 0 0 4px #8a6736, 0 0 0 7px #b9925a, inset 0 0 0 2px rgba(255,255,255,.35); animation: fp-pop .18s ease; }
+.rename-head { display: flex; align-items: center; gap: 11px; padding: 14px 16px; background: #7a8b3a; box-shadow: inset 0 -3px 0 rgba(0,0,0,.18); }
+.rename-head .rn-emoji { width: 40px; height: 40px; border-radius: 10px; background: rgba(255,255,255,.85); display: flex; align-items: center; justify-content: center; font-size: 22px; box-shadow: inset 0 -3px 0 rgba(0,0,0,.12); }
+.rename-head .rn-t { display: flex; flex-direction: column; gap: 2px; }
+.rename-head .rn-title { color: #fff; font-weight: 900; font-size: 16px; text-shadow: 0 2px 2px rgba(0,0,0,.25); }
+.rename-head .rn-sub { color: rgba(255,255,255,.85); font-size: 11px; font-weight: 600; }
+.rename-body { padding: 18px 16px 16px; display: flex; flex-direction: column; gap: 14px; }
+.rename-body input { width: 100%; box-sizing: border-box; padding: 12px 14px; border: none; border-radius: 10px; background: #fbf3e2; box-shadow: inset 0 0 0 2px #d8b772; color: #4a3618; font-size: 16px; font-weight: 700; font-family: "Noto Sans KR", sans-serif; outline: none; }
+.rename-body .rn-btns { display: flex; gap: 9px; }
+.rename-body .rn-cancel { flex: 1; background: #e8d6b0; color: #6a4a1c; box-shadow: inset 0 0 0 1.5px #d8b772; }
+.rename-body .rn-save { flex: 1.6; background: linear-gradient(180deg,#7bc24a,#5fa233); color: #fff; box-shadow: inset 0 2px 0 rgba(255,255,255,.35), 0 3px 0 #4a8527; }
+.rename-body .rn-save:active { transform: translateY(2px); }
+.rename-body .rn-note { font-size: 11px; color: #9a7f50; text-align: center; }
+
+/* ---- 인벤토리: 드래그 정렬 + 핫바 표시 + 호버 툴팁 ---- */
+.shop-card { position: relative; }
+.inv-note-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.inv-note-row .hot-note { display: inline-flex; align-items: center; gap: 5px; font-size: 10px; font-weight: 800; color: #b56e22; background: rgba(240,169,74,.16); padding: 3px 8px; border-radius: 6px; }
+.inv-note-row .hot-note i { width: 9px; height: 9px; border-radius: 3px; background: #e6b25e; box-shadow: inset 0 0 0 1.5px #b56e22; }
+.inv-cell.hot.empty { background: rgba(240,169,74,.10); box-shadow: inset 0 0 0 2px rgba(224,138,74,.32); }
+.inv-cell.hot.filled { box-shadow: inset 0 0 0 2px #e6b25e; }
+.inv-cell .hotkey { position: absolute; left: 2px; top: 1px; font-family: "Press Start 2P", monospace; font-size: 6px; color: #fff; background: #d6862f; padding: 1px 3px; border-radius: 4px; box-shadow: 0 1px 0 rgba(0,0,0,.2); z-index: 1; }
+.inv-cell .hotkey.dim { background: transparent; color: rgba(180,140,90,.55); box-shadow: none; }
+.inv-cell.filled { cursor: grab; }
+.inv-cell.filled:hover { box-shadow: inset 0 0 0 2px #c8a85e; transform: translateY(-1px); }
+.inv-cell.dragging { opacity: .35; }
+.inv-cell.over { box-shadow: inset 0 0 0 2px #5fa233 !important; }
+.inv-tip { position: absolute; z-index: 30; padding: 9px 11px; border-radius: 10px; background: rgba(28,18,10,.97); box-shadow: 0 8px 20px -4px rgba(0,0,0,.6), inset 0 0 0 1.5px rgba(200,169,110,.5); pointer-events: none; animation: fp-pop .1s ease; text-align: left; font-family: "Noto Sans KR", sans-serif; }
+.inv-tip[hidden] { display: none; }
+.inv-tip .it-head { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.inv-tip .it-ic { width: 30px; height: 30px; flex-shrink: 0; border-radius: 7px; background: rgba(255,244,221,.12); display: flex; align-items: center; justify-content: center; }
+.inv-tip .it-t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.inv-tip .it-nm { color: #fff4dd; font-weight: 800; font-size: 13px; white-space: nowrap; }
+.inv-tip .it-nm i { color: #c7a76a; font-weight: 600; font-size: 11px; font-style: normal; }
+.inv-tip .it-tier { color: #c7a76a; font-size: 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.inv-tip .it-tier b { font-family: "Press Start 2P", monospace; font-size: 6px; color: #fff; padding: 2px 4px; border-radius: 4px; }
+.inv-tip .it-facts { display: flex; flex-wrap: wrap; column-gap: 10px; row-gap: 2px; font-size: 10px; color: #e0cfa8; line-height: 1.5; }
+
+/* ---- 펫 상점 목록: 등급 배지 ---- */
+.pet-row .pr-grade { font-family: "Press Start 2P", monospace; font-size: 6px; color: #fff; padding: 2px 4px; border-radius: 4px; flex-shrink: 0; }

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<div style="display:flex; gap:5px;">
+  <sc-for list="{{ slots }}" as="s" hint-placeholder-count="10">
+    <div style="position:relative; width:{{ size }}px; height:{{ size }}px; flex-shrink:0; border-radius:8px; background:{{ s.bg }}; box-shadow:inset 0 0 0 2px {{ s.ring }}; display:flex; align-items:center; justify-content:center;">
+      <span style="position:absolute; left:3px; top:1px; font-family:'Press Start 2P'; font-size:6px; color:rgba(180,150,110,.85);">{{ s.num }}</span>
+      {{ s.iconEl }}
+      <sc-if value="{{ s.count }}" hint-placeholder-val="{{ false }}"><span style="position:absolute; right:2px; bottom:1px; font-family:'Press Start 2P'; font-size:6px; color:#4a3618; background:rgba(255,255,255,.85); padding:1px 3px; border-radius:4px;">{{ s.count }}</span></sc-if>
+    </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:560,&quot;height&quot;:60},&quot;size&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:48}}">
+class Component extends DCLogic {
+  renderVals(){
+    const sz=+(this.props.size||48);
+    const items=[['carrot',12],['tomato',8],['strawberry',5],['pumpkin',3],['apple',1],['corn',25],['grape',2],['potato',9],['onion',6],['lettuce',4]];
+    const isz=Math.round(sz*0.78);
+    const slots=items.map((it,i)=>{
+      const sel=i===0;
+      return {
+        num: i===9?'0':String(i+1),
+        count: String(it[1]),
+        bg: sel?'#fff4dd':'rgba(20,12,6,.5)',
+        ring: sel?'#ffd98a':'rgba(255,244,221,.25)',
+        iconEl: React.createElement('img',{src:'assets/crop-'+it[0]+'.png', style:{width:isz+'px', height:isz+'px', imageRendering:'pixelated'}}),
+      };
+    });
+    return { slots, size:sz };
+  }
+}
+</script>
+</body>
+</html>

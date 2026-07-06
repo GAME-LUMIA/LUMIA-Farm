@@ -38,6 +38,12 @@
         </div>
       </div>
 
+      <!-- 좌측 장착 펫 HUD (픽셀 아바타 + 배고픔 + 먹이주기) -->
+      <div class="pet-hud" id="petHud"></div>
+
+      <!-- 우상단 이벤트 로그 (펫 상호작용 알림) -->
+      <div class="game-log" id="gameLog"></div>
+
       <!-- 작물 정보 툴팁 (작물 위에 섰을 때) -->
       <div class="crop-tip" id="cropTip" hidden></div>
 
@@ -57,6 +63,7 @@
       <div class="hud-controls">
         <span>WASD / 방향키 이동</span>
         <span>E 상호작용</span>
+        <span>X 삽으로 캐기</span>
         <span>휠 핫바 전환</span>
       </div>
 
@@ -75,11 +82,35 @@
         <div class="shop-card">
           <div class="shop-header" id="shopHeader"></div>
           <div class="shop-body lumia-scroll" id="shopBody"></div>
+          <div class="inv-tip" id="invTip" hidden></div>
+        </div>
+      </div>
+
+      <!-- 펫 이름 변경 모달 -->
+      <div class="rename-overlay" id="renameOverlay" hidden>
+        <div class="rename-card">
+          <div class="rename-head">
+            <div class="rn-emoji" id="rnEmoji">🐾</div>
+            <div class="rn-t">
+              <span class="rn-title">펫 이름 변경</span>
+              <span class="rn-sub" id="rnSub">최대 10자</span>
+            </div>
+          </div>
+          <div class="rename-body">
+            <input id="rnInput" maxlength="10" placeholder="이름 입력" autocomplete="off" />
+            <div class="rn-btns">
+              <button class="btn rn-cancel" id="rnCancel">취소</button>
+              <button class="btn rn-save" id="rnSave">저장</button>
+            </div>
+            <span class="rn-note">비워두면 기본 종족 이름으로 돌아가요</span>
+          </div>
         </div>
       </div>
     </div>
   </div>
 
+  <script src="crops.js"></script>
+  <script src="pets.js"></script>
   <script src="shop.js"></script>
   <script src="game.js"></script>
 </body>

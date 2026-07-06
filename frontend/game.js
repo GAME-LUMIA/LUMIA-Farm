@@ -12,6 +12,9 @@ class LumiaFarm {
     this.TILE = 40;
     this.VW = 800;
     this.VH = 600;
+    // 데모 가속 배수 — 실서버 영속화 시 제거하고 서버 타임스탬프 기반으로 계산
+    this.GROW_SCALE = 40;   // 작물 성장 가속
+    this.HUNGER_DEMO = 40;  // 펫 배고픔 소모 가속
 
     // 런타임 상태
     this.name = "Kyle";
@@ -42,13 +45,8 @@ class LumiaFarm {
     this.cropTip = { show: false };
 
     // ---- 카탈로그 ----
-    this.CROPINFO = {
-      carrot: { name: "당근", emoji: "🥕", seed: 18, sell: 32, grow: "4분", secs: 240 },
-      wheat: { name: "밀", emoji: "🌾", seed: 12, sell: 22, grow: "3분", secs: 180 },
-      strawberry: { name: "딸기", emoji: "🍓", seed: 34, sell: 60, grow: "7분", secs: 420 },
-      pumpkin: { name: "호박", emoji: "🎃", seed: 48, sell: 95, grow: "10분", secs: 600 },
-      star: { name: "별과일", emoji: "⭐", seed: 120, sell: 240, grow: "20분", secs: 1200, luna: true },
-    };
+    // 작물 30종/6티어: crops.js(window.LumiaCrops)를 단일 출처로 런타임 생성
+    this.buildCropInfo();
     // 도구 (보관 가능, 판매/정렬 불가)
     this.TOOLINFO = {
       shovel: { name: "삽", emoji: "🪏", desc: "작물·씨앗 파괴" },
@@ -66,24 +64,29 @@ class LumiaFarm {
       upgrade: { emoji: "⬆️", label: "업그레이드 상점", color: "#8a6ad6", sub: "농장 땅과 보관함을 확장", layout: "upgshop" },
       hire: { emoji: "🔨", label: "도구 및 알바 고용", color: "#5a9bd6", sub: "장비를 사고 일손을 고용하세요", layout: "hire" },
     };
-    // 펫 종(외형) — 알에서 랜덤으로 태어남
-    this.PETS = [
-      { id: "chick", name: "삐약이", emoji: "🐥" },
-      { id: "bunny", name: "토깽이", emoji: "🐰" },
-      { id: "cat", name: "나비", emoji: "🐱" },
-      { id: "fox", name: "여우", emoji: "🦊" },
-      { id: "dog", name: "멍이", emoji: "🐶" },
-      { id: "hamster", name: "햄찌", emoji: "🐹" },
+    // 펫 종(외형/등급/능력) — pets.js(window.LumiaPets)가 단일 출처. 알에서 랜덤으로 태어남
+    const LP = window.LumiaPets;
+    this.PETS = LP ? LP.PETS : [
+      { id: "chick", name: "삐약이", emoji: "🐥", grade: "Common", ability: "seed" },
+      { id: "bunny", name: "토깽이", emoji: "🐰", grade: "Common", ability: "harvest" },
     ];
-    // 펫 능력 3종(랜덤 부여). every=발동 주기(초)
+    // 펫 능력 3종. every=발동 주기(초)
     this.PET_ABILITIES = {
-      seed: { label: "씨앗 수집가", icon: "🌰", desc: "가끔 씨앗을 찾아줘요", every: 25 },
-      money: { label: "행운의 상인", icon: "🪙", desc: "가끔 골드를 벌어와요", every: 30 },
+      seed: { label: "씨앗 수집가", icon: "🌱", desc: "가끔 씨앗을 찾아줘요", every: 25 },
+      coin: { label: "행운의 상인", icon: "🪙", desc: "가끔 골드를 벌어와요", every: 30 },
       harvest: { label: "수확 도우미", icon: "🧺", desc: "다 자란 작물을 대신 수확해요", every: 20 },
     };
+    this.GRADE_COLOR = { Common: "#7fa844", Rare: "#3f9fd6", Epic: "#9a68e0", Legendary: "#f0a52f" };
     this.EGG_PRICE = 120;   // 알 가격(LN)
     this.PET_MAX = 3;       // 최대 장착 펫
     this.pets = [];         // 소유/배회 펫
+    this.petNames = this.loadPetNames(); // 커스텀 이름(슬롯 3, localStorage 유지)
+    this.renameIdx = null;  // 이름 변경 중인 펫 인덱스
+    this.feedPickIdx = null;// 먹이 피커가 열린 펫 인덱스
+    this._petIconCache = {};
+    this._logId = 0;
+    // 인벤토리 모달 드래그/호버 상태
+    this.invDrag = null; this.invOver = null;
 
     // 도구(골드 구매) + 물뿌리개 사용/쿨다운 + 화분 운반
     this.TOOLPRICE = { shovel: 80, can: 120, pot: 15 };
@@ -117,6 +120,15 @@ class LumiaFarm {
       tpShop: document.getElementById("tpShop"),
       tpSell: document.getElementById("tpSell"),
       tpHome: document.getElementById("tpHome"),
+      petHud: document.getElementById("petHud"),
+      gameLog: document.getElementById("gameLog"),
+      invTip: document.getElementById("invTip"),
+      renameOverlay: document.getElementById("renameOverlay"),
+      rnEmoji: document.getElementById("rnEmoji"),
+      rnSub: document.getElementById("rnSub"),
+      rnInput: document.getElementById("rnInput"),
+      rnSave: document.getElementById("rnSave"),
+      rnCancel: document.getElementById("rnCancel"),
     };
 
     this.init();
@@ -160,10 +172,16 @@ class LumiaFarm {
 
     this.onKeyDown = (e) => {
       const k = e.key.toLowerCase();
+      if (this.renameIdx != null) { // 이름 변경 모달 우선
+        if (k === "escape") this.closeRename();
+        if (k === "enter") this.commitRename();
+        return;
+      }
       if (k === "escape") { if (this.shopKind) this.closeShop(); return; }
       if (this.shopKind) return; // 상점 열려 있는 동안 월드 입력 정지
       this.keys[k] = true;
       if (k === "e") this.interact();
+      if (k === "x") this.digUp();
       if (/^[0-9]$/.test(k)) this.selectSlot(k === "0" ? 9 : (+k - 1));
       if (["arrowup", "arrowdown", "arrowleft", "arrowright", " "].includes(k)) e.preventDefault();
     };
@@ -188,6 +206,13 @@ class LumiaFarm {
     if (this.hud.shopOverlay) {
       this.hud.shopOverlay.addEventListener("click", (e) => { if (e.target === this.hud.shopOverlay) this.closeShop(); });
     }
+    if (this.hud.renameOverlay) {
+      this.hud.renameOverlay.addEventListener("click", (e) => { if (e.target === this.hud.renameOverlay) this.closeRename(); });
+      this.hud.rnCancel.addEventListener("click", () => this.closeRename());
+      this.hud.rnSave.addEventListener("click", () => this.commitRename());
+      this.hud.rnInput.addEventListener("keydown", (e) => { e.stopPropagation(); if (e.key === "Enter") this.commitRename(); if (e.key === "Escape") this.closeRename(); });
+    }
+    this.renderPetHud(true);
 
     this.last = performance.now();
     this.loop = (now) => {
@@ -206,6 +231,158 @@ class LumiaFarm {
     window.removeEventListener("keyup", this.onKeyUp);
     window.removeEventListener("resize", this.onResize);
     window.removeEventListener("wheel", this.onWheel);
+  }
+
+  // ---------- 작물 카탈로그 (crops.js 기반 30종/6티어) ----------
+  parseSpec(str) { if (!str) return 60; let s = 0; const h = str.match(/(\d+)\s*시간/); const m = str.match(/(\d+)\s*분/); if (h) s += (+h[1]) * 3600; if (m) s += (+m[1]) * 60; return s || 60; }
+
+  buildCropInfo() {
+    const C = window.LumiaCrops;
+    this.CROP_IDS = C ? C.CROPS.map((c) => c.id) : ["carrot"];
+    // 티어별 [씨앗가, 판매가] — goldenapple(황금사과)만 루나 통화 예외
+    const tierPrice = { T1: [10, 18], T2: [25, 45], T3: [60, 110], T4: [140, 260], T5: [300, 520], T6: [600, 1050] };
+    const info = {};
+    if (C) {
+      C.CROPS.forEach((c) => {
+        const tp = tierPrice[c.tier] || [10, 18]; const luna = c.id === "goldenapple";
+        info[c.id] = {
+          name: c.name, emoji: c.emoji, tier: c.tier,
+          seed: luna ? 45 : tp[0], sell: luna ? 90 : tp[1], luna,
+          grow: c.grow, secs: this.parseSpec(c.grow),
+          regrow: c.regrow || null, regrowSecs: c.regrow ? this.parseSpec(c.regrow) : 0,
+        };
+      });
+      this.FEEDMAP = {}; C.FEED.forEach((f) => { this.FEEDMAP[f.id] = { hunger: f.hunger, satiety: f.satiety }; });
+      this.GRADE_DRAIN = {}; C.HUNGER.forEach((h) => { this.GRADE_DRAIN[h.key] = h.secs; });
+    } else {
+      info.carrot = { name: "당근", emoji: "🥕", tier: "T1", seed: 10, sell: 18, luna: false, grow: "5분", secs: 300, regrow: null, regrowSecs: 0 };
+      this.FEEDMAP = { carrot: { hunger: [80, 20, 0, 0], satiety: [10, 5, 0, 0] } };
+      this.GRADE_DRAIN = { Common: 1800, Rare: 3600, Epic: 7200, Legendary: 10800 };
+    }
+    this.CROPINFO = info;
+    if (C && typeof document !== "undefined") this.makeIcons();
+  }
+
+  // ---------- 픽셀 아트 아이콘 (dataURL 캐시) ----------
+  makeIcons() {
+    const C = window.LumiaCrops; if (!C) return;
+    for (const id in this.CROPINFO) {
+      const c = C.CROPS.find((x) => x.id === id); if (!c) continue;
+      this.CROPINFO[id].iconCrop = this.renderCropIcon(c);
+      this.CROPINFO[id].iconSeed = this.renderSeedIcon(c);
+    }
+  }
+  renderCropIcon(c) { // 수확물(열매) 아이콘
+    const S = 48, cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+    const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+    window.LumiaCrops.drawFruit(ctx, c.id, S / 2, S / 2, 1.55);
+    return cv.toDataURL();
+  }
+  renderSeedIcon(c) { // 크래프트지 씨앗 봉투 + 작물색 창
+    const S = 48, cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+    const x = cv.getContext("2d"); x.imageSmoothingEnabled = false;
+    const P = (a, b, w, h, col) => { x.fillStyle = col; x.fillRect(a, b, w, h); };
+    const sh = window.LumiaCrops.shade;
+    P(12, 42, 24, 3, "rgba(40,22,8,.22)");
+    P(11, 10, 26, 32, "#5a3d20");
+    P(12, 11, 24, 30, "#d8b877");
+    P(12, 11, 24, 3, "#e6ca94");
+    P(12, 38, 24, 3, sh("#d8b877", -28));
+    for (let i = 0; i < 6; i++) { P(12 + i * 4, 8, 3, 3, i % 2 ? "#c7a35e" : "#d8b877"); }
+    P(16, 17, 16, 14, "#f4ecd6");
+    P(15, 19, 18, 10, "#f4ecd6");
+    P(20, 20, 8, 8, c.fruit); P(20, 20, 8, 3, c.fruit2); P(26, 26, 2, 2, sh(c.fruit, -30));
+    P(23, 18, 2, 2, c.leaf2);
+    P(16, 34, 3, 2, sh(c.fruit, -20)); P(22, 35, 3, 2, sh(c.fruit, -20)); P(28, 34, 3, 2, sh(c.fruit, -20));
+    return cv.toDataURL();
+  }
+  renderPetIcon(id) { // 펫 아바타 PNG (캐시)
+    if (this._petIconCache[id]) return this._petIconCache[id];
+    const P = window.LumiaPets; if (!P) return null;
+    const S = 40, cv = document.createElement("canvas"); cv.width = S; cv.height = S;
+    const ctx = cv.getContext("2d"); ctx.imageSmoothingEnabled = false;
+    P.drawPet(ctx, id, S / 2, S - 4, 0, 1.15, { shadow: false, t: 0 });
+    const url = cv.toDataURL();
+    this._petIconCache[id] = url;
+    return url;
+  }
+  // 아이콘 <img> HTML (없으면 이모지 폴백)
+  iconHtml(src, size, emoji) {
+    if (src) return `<img class="pix" src="${src}" style="width:${size}px;height:${size}px" alt="" draggable="false">`;
+    return emoji || "";
+  }
+
+  // ---------- 펫 등급/이름 ----------
+  gradeIndex(g) { return { Common: 0, Rare: 1, Epic: 2, Legendary: 3 }[g] || 0; }
+  gradeLabel(g) { return { Common: "커먼", Rare: "레어", Epic: "에픽", Legendary: "레전더리" }[g] || g; }
+  loadPetNames() {
+    try { const s = localStorage.getItem("lumia_petnames"); if (s) return JSON.parse(s); } catch (e) { }
+    return [null, null, null];
+  }
+  savePetNames(arr) { try { localStorage.setItem("lumia_petnames", JSON.stringify(arr)); } catch (e) { } }
+  petDisplayName(pet, i) { return (this.petNames[i] && String(this.petNames[i]).trim()) || pet.species; }
+
+  openRename(i) {
+    const pet = this.pets[i]; if (!pet) return;
+    this.renameIdx = i; this.keys = {};
+    if (this.hud.rnEmoji) this.hud.rnEmoji.innerHTML = this.iconHtml(this.renderPetIcon(pet.id), 30, pet.emoji);
+    if (this.hud.rnSub) this.hud.rnSub.textContent = pet.species + " · 최대 10자";
+    if (this.hud.rnInput) { this.hud.rnInput.value = this.petNames[i] || ""; this.hud.rnInput.placeholder = pet.species; }
+    if (this.hud.renameOverlay) this.hud.renameOverlay.hidden = false;
+    setTimeout(() => { if (this.hud.rnInput) this.hud.rnInput.focus(); }, 0);
+  }
+  closeRename() { this.renameIdx = null; if (this.hud.renameOverlay) this.hud.renameOverlay.hidden = true; }
+  commitRename() {
+    const i = this.renameIdx; if (i == null) return;
+    const pet = this.pets[i];
+    const v = (this.hud.rnInput ? this.hud.rnInput.value : "").trim().slice(0, 10);
+    this.petNames[i] = v || null;
+    this.savePetNames(this.petNames);
+    this.closeRename();
+    if (pet) this.flash("✎ " + pet.species + " → “" + (v || pet.species) + "” 로 변경");
+    this.renderPetHud(true);
+  }
+
+  // ---------- 이벤트 로그 (우상단, 자동 소멸) ----------
+  logEvent(html) {
+    const el = this.hud.gameLog; if (!el) return;
+    const pill = document.createElement("div");
+    pill.className = "log-pill";
+    pill.innerHTML = html;
+    el.appendChild(pill);
+    while (el.children.length > 4) el.removeChild(el.firstChild);
+    setTimeout(() => { if (pill.parentNode) pill.parentNode.removeChild(pill); }, 3600);
+  }
+  petLog(pet, verb, itemName, itemIconSrc, tail, color) {
+    const icon = this.iconHtml(this.renderPetIcon(pet.id), 22, pet.emoji);
+    this.logEvent(
+      `<span class="lp-av">${icon}</span>` +
+      `<span class="lp-txt"><b style="color:${color || "#ffd98a"}">${pet.name}</b>${verb}</span>` +
+      (itemIconSrc ? `<span class="lp-item">${this.iconHtml(itemIconSrc, 20)}</span>` : "") +
+      (itemName ? `<span class="lp-nm">${itemName}</span>` : "") +
+      (tail ? `<span class="lp-tail">${tail}</span>` : "")
+    );
+  }
+
+  // ---------- 수확/캐기 (단일 vs 재성장) ----------
+  // 단일 수확(T1~T3): 작물 제거 → 빈 흙. 재성장(T4~T6): 남겨두고 재성장 타이머 리셋.
+  harvestReset(c) {
+    const info = this.CROPINFO[c.crop] || {};
+    if (info.regrow) { c.ready = false; c.stage = 2; c.growLeft = info.regrowSecs; }
+    else { const i = this.crops.indexOf(c); if (i >= 0) this.crops.splice(i, 1); }
+  }
+  // X키: 선 타일의 작물을 캐서 빈 흙으로 (재성장 작물 걷어내기). 삽 보유 필요.
+  digUp() {
+    if (this.shopKind) return;
+    const pgx = Math.floor(this.player.x / this.TILE), pgy = Math.floor(this.player.y / this.TILE);
+    const i = this.crops.findIndex((c) => c.gx === pgx && c.gy === pgy);
+    if (i < 0) { this.flash("여기엔 캘 작물이 없어요", false); return; }
+    if (!this.inMyPlot(pgx, pgy)) { this.flash("다른 농장의 작물이에요", false); return; }
+    if (this.toolOwned("shovel") < 1) { this.flash("삽이 필요해요 — 도구 상점에서 구매하세요", false); return; }
+    const c = this.crops[i]; this.crops.splice(i, 1); this.nearCrop = null;
+    this.burst(c.gx + .5, c.gy + .5, "#b98a5a", 10);
+    const nm = this.CROPINFO[c.crop] ? this.CROPINFO[c.crop].name : "작물";
+    this.flash("🪏 " + nm + " 캐냈어요 · 빈 흙");
   }
 
   // ---------- 텔레포트 ----------
@@ -241,22 +418,22 @@ class LumiaFarm {
     for (let i = 0; i < arr.length && left > 0; i++) { const sl = arr[i]; if (sl && sl.key === key) { const t = Math.min(left, sl.count); sl.count -= t; left -= t; if (sl.count <= 0) arr[i] = null; } }
     return n - left;
   }
-  // 아이템 키 → 표시 정보. cat: crop|seed|tool|pet, sell: 정렬용 판매가(도구=null)
+  // 아이템 키 → 표시 정보. cat: crop|seed|tool|pet, sell: 정렬용 판매가(도구=null), icon: 픽셀 아이콘 dataURL
   itemInfo(key) {
     if (typeof key === "string" && key.endsWith("_seed")) {
       const ck = key.slice(0, -5), c = this.CROPINFO[ck];
-      return { emoji: c ? c.emoji : "🌱", name: (c ? c.name : "") + " 씨앗", seed: true, crop: ck, cat: "seed", sell: c ? c.seed : 0 };
+      return { emoji: c ? c.emoji : "🌱", name: (c ? c.name : "") + " 씨앗", seed: true, crop: ck, cat: "seed", sell: c ? c.seed : 0, icon: c ? c.iconSeed : null, tier: c ? c.tier : null };
     }
     if (typeof key === "string" && key.startsWith("tool_")) {
       const t = this.TOOLINFO[key.slice(5)];
-      return { emoji: t ? t.emoji : "🔧", name: t ? t.name : key, seed: false, cat: "tool", sell: null };
+      return { emoji: t ? t.emoji : "🔧", name: t ? t.name : key, seed: false, cat: "tool", sell: null, icon: null, tier: null };
     }
     if (typeof key === "string" && key.startsWith("pet_")) {
       const p = this.PETS.find((pp) => pp.id === key.slice(4));
-      return { emoji: p ? p.emoji : "🐾", name: p ? p.name : key, seed: false, cat: "pet", sell: Math.floor(this.EGG_PRICE * 0.5) };
+      return { emoji: p ? p.emoji : "🐾", name: p ? p.name : key, seed: false, cat: "pet", sell: Math.floor(this.EGG_PRICE * 0.5), icon: this.renderPetIcon(key.slice(4)), tier: null };
     }
     const c = this.CROPINFO[key];
-    return { emoji: c ? c.emoji : "❔", name: c ? c.name : key, seed: false, cat: "crop", sell: c ? c.sell : 0 };
+    return { emoji: c ? c.emoji : "❔", name: c ? c.name : key, seed: false, cat: "crop", sell: c ? c.sell : 0, icon: c ? c.iconCrop : null, tier: c ? c.tier : null };
   }
   // 보관함 용량: 기본 64칸, 레벨(1~5)마다 +64칸
   storeCapForLv(lv) { return 64 * Math.max(1, lv); }
@@ -316,7 +493,7 @@ class LumiaFarm {
       const selected = i === this.sel;
       html += `<div class="slot${selected ? " sel" : ""}${info && info.seed ? " seed" : ""}" data-slot="${i}">` +
         `<span class="num">${i === 9 ? "0" : i + 1}</span>` +
-        `${info ? info.emoji : ""}` +
+        `${info ? this.iconHtml(info.icon, 34, info.emoji) : ""}` +
         `${info && info.seed ? `<span class="seed-tag">🌱</span>` : ""}` +
         `${sl ? `<span class="count">${this.fmt(sl.count)}</span>` : ""}` +
         `</div>`;
@@ -335,7 +512,7 @@ class LumiaFarm {
     if (!sl) { el.hidden = true; return; }
     const info = this.itemInfo(sl.key);
     const type = info.cat === "seed" ? "씨앗" : info.cat === "tool" ? "도구" : info.cat === "pet" ? "펫" : "작물";
-    el.innerHTML = `<span class="hl-emoji">${info.emoji}</span>` +
+    el.innerHTML = `<span class="hl-emoji">${this.iconHtml(info.icon, 17, info.emoji)}</span>` +
       `<span class="hl-name">${info.name}</span>` +
       `<span class="hl-type${info.seed ? " seed" : ""}">${type}</span>`;
     el.hidden = false;
@@ -396,7 +573,7 @@ class LumiaFarm {
       }
       // 열린 흙에 작물 심기(성장 타이머 포함) — 내 농지는 비워두고 플레이어가 심은 것만 유지
       if (!o.allLocked && !o.mine) {
-        const types = ["carrot", "wheat", "strawberry", "pumpkin", "star"];
+        const types = (this.CROP_IDS && this.CROP_IDS.length) ? this.CROP_IDS : ["carrot"];
         const density = o.mine ? .8 : .55;
         for (let y = py + 1; y < py + ph - 1; y++) for (let x = px + 1; x < px + pw - 1; x++) {
           if (!g[y] || !g[y][x] || g[y][x].t !== "soil") continue;
@@ -643,16 +820,19 @@ class LumiaFarm {
     this.clampCam();
     // 다른 플레이어들 살짝 배회
     this.others.forEach((o, i) => { o.anim += dt; o.x += Math.sin(this.t * .01 + i) * .15; });
-    // 작물 성장 (dt는 60fps 프레임 단위 → 초 = dt/60)
-    const ds = dt / 60;
+    // 작물 성장 (dt는 60fps 프레임 단위 → 초 = dt/60). 데모에서는 GROW_SCALE배 가속.
+    const ds = dt / 60, gs = ds * this.GROW_SCALE;
     for (const c of this.crops) {
       if (c.ready) continue;
       if (c.growLeft === undefined) { c.secTotal = (this.CROPINFO[c.crop] || { secs: 240 }).secs; c.growLeft = c.secTotal / 3; }
-      c.growLeft -= ds;
+      c.growLeft -= gs;
       if (c.growLeft <= 0) { if (c.stage < 2) { c.stage++; c.growLeft = c.secTotal / 3; } else { c.ready = true; c.growLeft = 0; } }
     }
-    // 펫 배회 + 능력
+    // 펫 배회 + 배고픔 + 능력
     this.updatePets(dt, ds);
+    // 좌측 펫 HUD 배고픔 바 주기 갱신
+    this.petHudTimer = (this.petHudTimer || 0) + dt;
+    if (this.petHudTimer >= 18) { this.petHudTimer = 0; this.renderPetHud(); }
     // 물뿌리개 재사용 대기
     if (this.canCd > 0) { this.canCd = Math.max(0, this.canCd - ds); if (this.canCd === 0) this.canUses = 5; }
     // 알바 자동 작업
@@ -683,7 +863,7 @@ class LumiaFarm {
       if (crop) {
         const info = this.CROPINFO[crop.crop] || { name: "", emoji: "❔" };
         const totalLeft = crop.ready ? 0 : ((2 - crop.stage) * (crop.secTotal / 3) + crop.growLeft);
-        tip = { emoji: info.emoji, name: info.name, ready: crop.ready, time: crop.ready ? "" : this.fmtTime(totalLeft) };
+        tip = { emoji: info.emoji, icon: info.iconCrop, name: info.name, ready: crop.ready, time: crop.ready ? "" : this.fmtTime(totalLeft) };
         if (mine) {
           // 내 농지 작물은 성장 중이어도 잡아둔다(도구 사용 대상). 수확 힌트는 다 자랐을 때만.
           this.nearCrop = crop;
@@ -712,7 +892,8 @@ class LumiaFarm {
 
   fmtTime(sec) {
     sec = Math.max(0, Math.ceil(sec));
-    const m = Math.floor(sec / 60), s = sec % 60;
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    if (h > 0) return m > 0 ? h + "시간 " + m + "분" : h + "시간";
     if (m > 0) return s > 0 ? m + "분 " + s + "초" : m + "분";
     return s + "초";
   }
@@ -728,7 +909,7 @@ class LumiaFarm {
       : `<span class="tip-badge growing">🕒 ${tip.time}</span>`;
     const sig = tip.emoji + "|" + tip.name + "|" + tip.ready + "|" + tip.time;
     if (this.cropTip.sig !== sig) {
-      el.innerHTML = `<div class="tip-box"><span class="tip-emoji">${tip.emoji}</span><span class="tip-name">${tip.name}</span>${badge}</div><div class="tip-arrow"></div>`;
+      el.innerHTML = `<div class="tip-box"><span class="tip-emoji">${this.iconHtml(tip.icon, 22, tip.emoji)}</span><span class="tip-name">${tip.name}</span>${badge}</div><div class="tip-arrow"></div>`;
       this.cropTip.sig = sig;
     }
     el.style.left = sx + "px";
@@ -749,10 +930,12 @@ class LumiaFarm {
   }
 
   harvestCrop(c) {
-    c.ready = false; c.stage = 0; c.growLeft = c.secTotal / 3;
+    if (!this.addItem(this.inv, c.crop, 1)) { this.flash("인벤토리가 가득 찼어요", false); return; }
     this.burst(c.gx + .5, c.gy + .5, "#ffe14d", 14);
-    if (this.addItem(this.inv, c.crop, 1)) { this.renderHotbar(); this.flash("+1 " + (this.CROPINFO[c.crop] ? this.CROPINFO[c.crop].name : "")); }
-    else this.flash("인벤토리가 가득 찼어요", false);
+    const info = this.CROPINFO[c.crop] || {};
+    this.harvestReset(c); // 단일 수확=제거(빈 흙), 재성장 작물=재성장 타이머 시작
+    this.renderHotbar();
+    this.flash("+1 " + (info.name || "") + (info.regrow ? " · ♻ 재성장 시작" : ""));
   }
 
   // ---------- 상호작용 ----------
@@ -842,6 +1025,7 @@ class LumiaFarm {
   }
   closeShop() {
     this.shopKind = null;
+    this.hideInvTip();
     if (this.hud.shopOverlay) this.hud.shopOverlay.hidden = true;
   }
 
@@ -850,6 +1034,7 @@ class LumiaFarm {
   renderShop() {
     const kind = this.shopKind, meta = kind ? this.SHOPMETA[kind] : null;
     if (!meta) return;
+    this.hideInvTip();
     // 헤더
     this.hud.shopHeader.style.background = meta.color;
     this.hud.shopHeader.innerHTML =
@@ -874,13 +1059,16 @@ class LumiaFarm {
   }
 
   renderBuy(body, kind) {
-    // 현재 buy 레이아웃은 씨앗 상점 전용 (펫은 petbuy 레이아웃)
-    const items = Object.keys(this.CROPINFO).map((k) => { const c = this.CROPINFO[k]; return { emoji: c.emoji, name: c.name + " 씨앗", sub: "성장 " + c.grow, price: c.seed, cur: c.luna ? "luna" : "gold", buy: () => this.buySeed(k) }; });
+    // 씨앗 상점: 30종/6티어 — 티어·성장·재성장 표기 + 씨앗 봉투 픽셀 아이콘
+    const items = Object.keys(this.CROPINFO).map((k) => {
+      const c = this.CROPINFO[k];
+      return { icon: c.iconSeed, emoji: c.emoji, name: c.name + " 씨앗", sub: `[${c.tier}] 성장 ${c.grow}${c.regrow ? " · ♻" + c.regrow : ""}`, price: c.seed, cur: c.luna ? "luna" : "gold", buy: () => this.buySeed(k) };
+    });
     const grid = document.createElement("div"); grid.className = "buy-grid";
     items.forEach((it) => {
       const cu = this.cur(it.cur);
       const card = document.createElement("div"); card.className = "buy-card";
-      card.innerHTML = `<div class="ic">${it.emoji}</div><div class="info"><span class="nm">${it.name}</span><span class="sub">${it.sub}</span><span class="price" style="color:${cu.color}">${cu.icon} ${this.fmt(it.price)}</span></div><button class="btn buy">구매</button>`;
+      card.innerHTML = `<div class="ic">${this.iconHtml(it.icon, 40, it.emoji)}</div><div class="info"><span class="nm">${it.name}</span><span class="sub">${it.sub}</span><span class="price" style="color:${cu.color}">${cu.icon} ${this.fmt(it.price)}</span></div><button class="btn buy">구매</button>`;
       card.querySelector(".buy").addEventListener("click", it.buy);
       grid.appendChild(card);
     });
@@ -896,7 +1084,7 @@ class LumiaFarm {
       total += n * c.sell;
       const row = document.createElement("div"); row.className = "sell-row"; row.style.opacity = n <= 0 ? .45 : 1;
       const sub = `보유 ${n}개${stored > 0 ? ` · 보관함 ${stored}개` : ""} · 개당 🪙 ${this.fmt(c.sell)}`;
-      row.innerHTML = `<div class="ic">${c.emoji}</div><div class="info"><span class="nm">${c.name}</span><span class="sub">${sub}</span></div><button class="btn one"${n <= 0 ? " disabled" : ""}>1개</button><button class="btn sellbtn"${n <= 0 ? " disabled" : ""}>판매</button>`;
+      row.innerHTML = `<div class="ic">${this.iconHtml(c.iconCrop, 36, c.emoji)}</div><div class="info"><span class="nm">${c.name}</span><span class="sub">${sub}</span></div><button class="btn one"${n <= 0 ? " disabled" : ""}>1개</button><button class="btn sellbtn"${n <= 0 ? " disabled" : ""}>판매</button>`;
       row.querySelector(".one").addEventListener("click", () => this.sellCrop(k, false));
       row.querySelector(".sellbtn").addEventListener("click", () => this.sellCrop(k, true));
       list.appendChild(row);
@@ -1001,68 +1189,217 @@ class LumiaFarm {
   }
 
   // ---------- 펫 ----------
-  makePet(type) {
-    const sp = this.PETS[Math.floor(Math.random() * this.PETS.length)];
+  petName(pet) { const i = this.pets.indexOf(pet); return (i >= 0 && this.petNames[i] && String(this.petNames[i]).trim()) || pet.species; }
+  petPlotTarget() {
+    const T = this.TILE, pl = this.myPlot;
+    return { tx: (pl.x + 1.5 + Math.random() * (pl.w - 3)) * T, ty: (pl.y + 2 + Math.random() * (pl.h - 4)) * T };
+  }
+  // 알 부화: 등급 확률(커먼60/레어28/에픽10/레전더리2%) → 그 등급의 종 랜덤. 능력은 종 고유.
+  makePet() {
+    const r = Math.random() * 100;
+    const grade = r < 60 ? "Common" : r < 88 ? "Rare" : r < 98 ? "Epic" : "Legendary";
+    const pool = this.PETS.filter((p) => p.grade === grade);
+    const sp = (pool.length ? pool : this.PETS)[Math.floor(Math.random() * (pool.length || this.PETS.length))];
     const p = this.myPlot, T = this.TILE;
     const cx = (p.x + p.w / 2) * T, cy = (p.y + p.h / 2) * T;
-    return { type, name: sp.name, emoji: sp.emoji, x: cx, y: cy, tx: cx, ty: cy, timer: this.PET_ABILITIES[type].every * (0.4 + Math.random() * 0.6), bob: Math.random() * 6.28, hunger: 100 };
+    const t = this.petPlotTarget();
+    return {
+      id: sp.id, species: sp.name, emoji: sp.emoji, grade: sp.grade || "Common",
+      ability: sp.ability || "harvest",
+      x: cx, y: cy, tx: t.tx, ty: t.ty, anim: Math.random() * 4, dir: 1, moving: false,
+      wait: 20 + Math.random() * 70, aTimer: Math.random() * 10, hTimer: Math.random() * 2,
+      hunger: 100, satietyLeft: 0, starving: false,
+    };
   }
   spawnInitialPets() {
-    this.pets = [];
-    const types = Object.keys(this.PET_ABILITIES);
-    this.pets.push(this.makePet(types[Math.floor(Math.random() * types.length)]));
+    this.pets = [this.makePet()];
   }
   buyEgg() {
     if (this.pets.length >= this.PET_MAX) { this.flash("펫은 최대 " + this.PET_MAX + "마리까지 장착할 수 있어요", false); return; }
     if (this.buy(this.EGG_PRICE, "luna", "펫 알")) {
-      const types = Object.keys(this.PET_ABILITIES);
-      const type = types[Math.floor(Math.random() * types.length)];
-      const pet = this.makePet(type);
+      const pet = this.makePet();
       this.pets.push(pet);
       this.burst(pet.x / this.TILE, pet.y / this.TILE, "#ffe14d", 16);
-      this.flash("🥚 부화! " + pet.emoji + " " + pet.name + " · " + this.PET_ABILITIES[type].label);
-      this.renderShop();
+      this.flash("🥚 부화! [" + this.gradeLabel(pet.grade) + "] " + pet.species + " · " + this.PET_ABILITIES[pet.ability].label);
+      this.renderShop(); this.renderPetHud(true);
     }
   }
   sellPet(i) {
     const pt = this.pets[i]; if (!pt) return;
     this.pets.splice(i, 1);
+    this.feedPickIdx = null;
+    this.petNames.splice(i, 1); this.petNames.push(null); this.savePetNames(this.petNames);
     const gain = Math.floor(this.EGG_PRICE * 0.5); this.luna += gain;
-    this.renderHud(); this.flash(pt.name + " 분양 완료 · +" + this.fmt(gain) + " LN"); this.renderShop();
+    this.renderHud(); this.flash(pt.species + " 분양 완료 · +" + this.fmt(gain) + " LN");
+    this.renderShop(); this.renderPetHud(true);
   }
-  // 펫 능력 발동
-  petAct(pet) {
-    if (pet.type === "seed") {
-      const keys = Object.keys(this.CROPINFO);
-      const key = keys[Math.floor(Math.random() * keys.length)] + "_seed";
-      if (this.addItem(this.inv, key, 1)) { this.renderHotbar(); this.burst(pet.x / this.TILE, pet.y / this.TILE, "#8fd14f", 6); }
-    } else if (pet.type === "money") {
-      const gain = 5 + Math.floor(Math.random() * 11);
-      this.gold += gain; this.renderHud(); this.burst(pet.x / this.TILE, pet.y / this.TILE, "#f0cf8e", 6);
-    } else if (pet.type === "harvest") {
-      const c = this.crops.find((c) => c.ready && this.inMyPlot(c.gx, c.gy));
-      if (c && this.addItem(this.inv, c.crop, 1)) {
-        c.ready = false; c.stage = 0; c.growLeft = c.secTotal / 3;
-        this.renderHotbar(); this.burst(c.gx + 0.5, c.gy + 0.5, "#ffe14d", 8);
+  // 펫 능력 타이머 (수확 도우미는 짧은 주기로 주변 탐색)
+  petTick(pet, ds) {
+    if (pet.ability === "harvest") { pet.hTimer += ds; if (pet.hTimer >= 2.4) { pet.hTimer = 0; this.petHarvest(pet); } }
+    else if (pet.ability === "seed") { pet.aTimer += ds; if (pet.aTimer >= this.PET_ABILITIES.seed.every) { pet.aTimer = 0; this.petSeed(pet); } }
+    else if (pet.ability === "coin") { pet.aTimer += ds; if (pet.aTimer >= this.PET_ABILITIES.coin.every) { pet.aTimer = 0; this.petCoin(pet); } }
+  }
+  petHarvest(pet) {
+    const T = this.TILE, gx = pet.x / T, gy = pet.y / T;
+    const c = this.crops.find((c) => c.ready && this.inMyPlot(c.gx, c.gy) && Math.abs(c.gx + .5 - gx) < 2.6 && Math.abs(c.gy + .5 - gy) < 2.6);
+    if (!c) return;
+    if (this.addItem(this.inv, c.crop, 1)) {
+      this.burst(c.gx + .5, c.gy + .5, "#ffe14d", 12);
+      const info = this.CROPINFO[c.crop] || {};
+      this.harvestReset(c);
+      this.renderHotbar();
+      this.petLog({ ...pet, name: this.petName(pet) }, "가 수확했어요", info.name, info.iconCrop, info.regrow ? "♻ 재성장 시작" : "", "#7fd14f");
+    }
+  }
+  petSeed(pet) {
+    const keys = this.CROP_IDS;
+    const k = keys[Math.floor(Math.random() * keys.length)];
+    if (this.addItem(this.inv, k + "_seed", 1)) {
+      this.renderHotbar(); this.burst(pet.x / this.TILE, pet.y / this.TILE, "#8fd14f", 8);
+      const info = this.CROPINFO[k] || {};
+      this.petLog({ ...pet, name: this.petName(pet) }, "가 씨앗을 찾았어요", info.name, info.iconSeed, "", "#8fd14f");
+    }
+  }
+  petCoin(pet) {
+    const g = 15 + Math.floor(Math.random() * 20);
+    this.gold += g; this.renderHud();
+    this.burst(pet.x / this.TILE, pet.y / this.TILE, "#f7d271", 8);
+    this.petLog({ ...pet, name: this.petName(pet) }, "가 동전을 주웠어요", "+" + g + " G", null, "", "#f7d271");
+  }
+  // 펫 배회 + 배고픔(등급별 소모/포만감) + 능력
+  updatePets(dt, ds) {
+    const pl = this.myPlot; if (!pl) return;
+    for (const pet of this.pets) {
+      // 배고픔: 포만감 시간 동안은 유지, 이후 등급별 속도로 감소 (데모 가속)
+      if (pet.satietyLeft > 0) { pet.satietyLeft = Math.max(0, pet.satietyLeft - ds); }
+      else {
+        const drainSecs = (this.GRADE_DRAIN[pet.grade] || 1800) / this.HUNGER_DEMO;
+        pet.hunger = Math.max(0, (pet.hunger == null ? 100 : pet.hunger) - ds * (100 / drainSecs));
+      }
+      const wasStarving = pet.starving;
+      pet.starving = pet.hunger <= 0;
+      if (pet.starving) {
+        // 배고파서 일을 멈추고 그 자리에 정지
+        pet.moving = false;
+        pet.anim += dt * 0.04;
+        if (!wasStarving) { this.flash("😢 " + this.petName(pet) + " 이(가) 배고파요! 먹이를 주세요", false); this.renderPetHud(true); }
+        continue;
+      }
+      if (wasStarving) this.renderPetHud(true);
+      const dx = pet.tx - pet.x, dy = pet.ty - pet.y, d = Math.hypot(dx, dy);
+      if (d > 2) {
+        const step = Math.min(d, 1.15 * dt);
+        pet.x += dx / d * step; pet.y += dy / d * step; pet.moving = true;
+        if (dx < -0.4) pet.dir = -1; else if (dx > 0.4) pet.dir = 1;
+      } else {
+        pet.moving = false; pet.wait -= dt;
+        if (pet.wait <= 0) { const t = this.petPlotTarget(); pet.tx = t.tx; pet.ty = t.ty; pet.wait = 30 + Math.random() * 90; }
+      }
+      pet.anim += pet.moving ? dt * 0.2 : dt * 0.05;
+      this.petTick(pet, ds);
+    }
+  }
+
+  // ---------- 먹이 시스템 (crops.js FEED — 등급별 회복/포만감) ----------
+  // 인벤에서 이 등급 펫에게 줄 수 있는 먹이 목록 (효과 있는 것 우선)
+  feedListFor(grade) {
+    const gi = this.gradeIndex(grade), C = window.LumiaCrops;
+    const owned = {};
+    for (const s of this.inv) { if (s) owned[s.key] = (owned[s.key] || 0) + s.count; }
+    const list = [];
+    if (C) {
+      for (const f of C.FEED) {
+        const cnt = owned[f.id] || 0; if (cnt <= 0) continue;
+        const fm = this.FEEDMAP[f.id] || { hunger: [0, 0, 0, 0], satiety: [0, 0, 0, 0] };
+        const fill = fm.hunger[gi], sat = fm.satiety[gi];
+        const cr = this.CROPINFO[f.id] || {};
+        list.push({ key: f.id, name: cr.name || f.id, count: cnt, fill, sat, usable: fill > 0, icon: cr.iconCrop });
       }
     }
+    list.sort((a, b) => (b.usable - a.usable) || (b.fill - a.fill));
+    return list;
   }
-  // 펫 배회 + 능력 타이머
-  updatePets(dt, ds) {
-    const p = this.myPlot; if (!p) return;
-    const T = this.TILE;
-    const minx = (p.x + 1.5) * T, maxx = (p.x + p.w - 1.5) * T, miny = (p.y + 1.5) * T, maxy = (p.y + p.h - 1.5) * T;
-    for (const pet of this.pets) {
-      const arrived = Math.abs(pet.x - pet.tx) < 2 && Math.abs(pet.y - pet.ty) < 2;
-      if (arrived && Math.random() < 0.03) { pet.tx = minx + Math.random() * (maxx - minx); pet.ty = miny + Math.random() * (maxy - miny); }
-      pet.x += (pet.tx - pet.x) * Math.min(1, 0.04 * dt);
-      pet.y += (pet.ty - pet.y) * Math.min(1, 0.04 * dt);
-      pet.bob += dt * 0.12;
-      if (pet.hunger === undefined) pet.hunger = 100;
-      pet.hunger = Math.max(0, pet.hunger - ds * 0.15); // 서서히 배고픔
-      pet.timer -= ds;
-      if (pet.timer <= 0) { pet.timer = this.PET_ABILITIES[pet.type].every; this.petAct(pet); }
-    }
+  feedPetWith(petIndex, key) {
+    const pet = this.pets[petIndex]; if (!pet) return;
+    if (pet.hunger >= 100) { this.flash(this.petName(pet) + " 은(는) 배가 불러요", false); this.feedPickIdx = null; this.renderPetHud(true); return; }
+    const gi = this.gradeIndex(pet.grade);
+    const fm = this.FEEDMAP[key] || { hunger: [0, 0, 0, 0], satiety: [0, 0, 0, 0] };
+    const fill = fm.hunger[gi], sat = fm.satiety[gi];
+    if (fill <= 0) { this.flash("🚫 " + ((this.CROPINFO[key] || {}).name || "") + "(으)론 " + this.gradeLabel(pet.grade) + " 펫을 못 채워요", false); return; }
+    if (this.removeKey(this.inv, key, 1) < 1) { this.flash("먹이가 없어요", false); this.feedPickIdx = null; this.renderPetHud(true); return; }
+    pet.hunger = Math.min(100, pet.hunger + fill);
+    pet.satietyLeft = sat; pet.starving = false;
+    this.feedPickIdx = null;
+    this.renderHotbar(); this.renderPetHud(true);
+    this.burst(pet.x / this.TILE, pet.y / this.TILE, "#ff9db0", 8);
+    const info = this.CROPINFO[key] || {};
+    this.petLog({ ...pet, name: this.petName(pet) }, "를 먹였어요", info.name, info.iconCrop, "+" + fill + " 배고픔 · 포만감 " + sat + "초", "#ffb066");
+  }
+
+  // ---------- 좌측 펫 HUD (픽셀 아바타 + 배고픔 바 + 먹이 피커) ----------
+  renderPetHud(force) {
+    const el = this.hud.petHud; if (!el) return;
+    if (!force && this.feedPickIdx != null) return; // 피커 열려 있는 동안 자동 재렌더로 클릭이 끊기지 않게
+    const sig = this.pets.map((p, i) => [p.id, this.petName(p), Math.round(p.hunger), p.starving, Math.ceil(p.satietyLeft), this.feedPickIdx === i].join(":")).join("|");
+    if (!force && sig === this._petHudSig) return;
+    this._petHudSig = sig;
+    let html = `<span class="ph-title">장착한 펫 ${this.pets.length}/${this.PET_MAX}</span>`;
+    this.pets.forEach((pet, i) => {
+      const pct = Math.max(0, Math.min(100, Math.round(pet.hunger)));
+      const color = pct > 50 ? "#7fd14f" : pct > 20 ? "#f0b53a" : "#ef4d54";
+      const sated = pet.satietyLeft > 0;
+      const ab = this.PET_ABILITIES[pet.ability];
+      const status = pet.starving ? "😢 배고파요 · 먹이 필요" : (sated ? "😴 포만감 " + Math.ceil(pet.satietyLeft) + "초 유지" : (ab.icon + " " + ab.label));
+      const ring = pet.starving ? "rgba(239,77,84,.85)" : "rgba(200,169,110,.4)";
+      const filter = pet.starving ? "filter:grayscale(.6) brightness(.85)" : "";
+      let picker = "";
+      if (this.feedPickIdx === i) {
+        const foods = this.feedListFor(pet.grade);
+        let rows = "";
+        foods.forEach((f) => {
+          rows += `<div class="fp-row${f.usable ? "" : " off"}" data-key="${f.key}" data-usable="${f.usable ? 1 : 0}">` +
+            `<span class="fp-ic">${this.iconHtml(f.icon, 26, "🍎")}</span>` +
+            `<span class="fp-t"><b>${f.name} <i>×${this.fmt(f.count)}</i></b>` +
+            `<span class="fp-fill" style="color:${f.usable ? "#7fd14f" : "#c98a6a"}">${f.usable ? "+" + f.fill + " 배고픔" : "이 등급엔 효과 없음"}</span></span>` +
+            (f.usable ? `<span class="fp-sat">포만감 ${f.sat}초</span>` : "") +
+            `</div>`;
+        });
+        if (!foods.length) rows = `<div class="fp-empty">인벤토리에 먹이가 없어요.<br>먹이 작물을 수확해 오세요.</div>`;
+        picker = `<div class="feed-pick" data-pet="${i}">` +
+          `<div class="fp-head"><span>${this.petName(pet)} 먹이 선택</span><button class="fp-close">✕</button></div>` +
+          `<div class="fp-list lumia-scroll">${rows}</div></div>`;
+      }
+      html += `<div class="pet-card" style="box-shadow:0 3px 10px -3px rgba(0,0,0,.5), inset 0 0 0 1.5px ${ring}">` +
+        `<div class="pc-row">` +
+        `<span class="pc-av" style="${filter}">${this.iconHtml(this.renderPetIcon(pet.id), 30, pet.emoji)}</span>` +
+        `<div class="pc-body">` +
+        `<div class="pc-top"><span class="pc-grade" style="background:${this.GRADE_COLOR[pet.grade] || "#7fa844"}">${this.gradeLabel(pet.grade)}</span>` +
+        `<span class="pc-name">${this.petName(pet)}</span>` +
+        `<button class="pc-rename" data-pet="${i}" title="이름 변경">✎</button>` +
+        `<span class="pc-pct" style="color:${color}">${pct}%</span></div>` +
+        `<span class="pc-status">${status}</span>` +
+        `<div class="pc-bar"><div class="pc-fill" style="width:${pct}%;background:${color}"></div></div>` +
+        `</div></div>` +
+        `<button class="pc-feed" data-pet="${i}">먹이주기</button>` +
+        picker +
+        `</div>`;
+    });
+    el.innerHTML = html;
+    // 이벤트 바인딩
+    el.querySelectorAll(".pc-rename").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); this.openRename(+b.dataset.pet); }));
+    el.querySelectorAll(".pc-feed").forEach((b) => b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const i = +b.dataset.pet;
+      this.feedPickIdx = this.feedPickIdx === i ? null : i;
+      this.renderPetHud(true);
+    }));
+    el.querySelectorAll(".fp-close").forEach((b) => b.addEventListener("click", (e) => { e.stopPropagation(); this.feedPickIdx = null; this.renderPetHud(true); }));
+    el.querySelectorAll(".fp-row").forEach((r) => r.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (r.dataset.usable !== "1") return;
+      const picker = r.closest(".feed-pick");
+      this.feedPetWith(+picker.dataset.pet, r.dataset.key);
+    }));
   }
 
   renderPetBuy(body) {
@@ -1080,7 +1417,15 @@ class LumiaFarm {
     wrap.appendChild(abil);
     if (n) {
       const list = document.createElement("div"); list.className = "pet-list";
-      this.pets.forEach((pt) => { const a = this.PET_ABILITIES[pt.type]; const hun = Math.round(pt.hunger === undefined ? 100 : pt.hunger); const r = document.createElement("div"); r.className = "pet-row"; r.innerHTML = `<span class="pr-em">${pt.emoji}</span><span class="pr-nm">${pt.name}</span><span class="pr-ab">${a.icon} ${a.label}</span><span class="pr-hun${hun < 20 ? " low" : ""}">🍖 ${hun}%</span>`; list.appendChild(r); });
+      this.pets.forEach((pt, i) => {
+        const a = this.PET_ABILITIES[pt.ability];
+        const hun = Math.round(pt.hunger === undefined ? 100 : pt.hunger);
+        const r = document.createElement("div"); r.className = "pet-row";
+        r.innerHTML = `<span class="pr-em">${this.iconHtml(this.renderPetIcon(pt.id), 26, pt.emoji)}</span>` +
+          `<span class="pr-grade" style="background:${this.GRADE_COLOR[pt.grade] || "#7fa844"}">${this.gradeLabel(pt.grade)}</span>` +
+          `<span class="pr-nm">${this.petName(pt)}</span><span class="pr-ab">${a.icon} ${a.label}</span><span class="pr-hun${hun < 20 ? " low" : ""}">🍖 ${hun}%</span>`;
+        list.appendChild(r);
+      });
       wrap.appendChild(list);
     }
     body.appendChild(wrap);
@@ -1090,9 +1435,9 @@ class LumiaFarm {
     const price = Math.floor(this.EGG_PRICE * 0.5);
     const list = document.createElement("div"); list.className = "sell-list";
     this.pets.forEach((pt, i) => {
-      const a = this.PET_ABILITIES[pt.type];
+      const a = this.PET_ABILITIES[pt.ability];
       const row = document.createElement("div"); row.className = "sell-row";
-      row.innerHTML = `<div class="ic">${pt.emoji}</div><div class="info"><span class="nm">${pt.name}</span><span class="sub">${a.icon} ${a.label} · 분양가 🌾 ${this.fmt(price)}</span></div><button class="btn sellbtn">분양</button>`;
+      row.innerHTML = `<div class="ic">${this.iconHtml(this.renderPetIcon(pt.id), 34, pt.emoji)}</div><div class="info"><span class="nm">[${this.gradeLabel(pt.grade)}] ${this.petName(pt)}</span><span class="sub">${a.icon} ${a.label} · 분양가 🌾 ${this.fmt(price)}</span></div><button class="btn sellbtn">분양</button>`;
       row.querySelector(".sellbtn").addEventListener("click", () => this.sellPet(i));
       list.appendChild(row);
     });
@@ -1143,7 +1488,15 @@ class LumiaFarm {
     Object.keys(this.CROPINFO).forEach((k) => { const h = this.countKey(this.inv, k); if (h > 0) { gain += h * this.CROPINFO[k].sell; this.removeKey(this.inv, k, h); } });
     if (gain > 0) { this.gold += gain; this.renderHud(); this.renderHotbar(); }
   }
-  albaFeed() { for (const pet of this.pets) if (pet.hunger < 20) pet.hunger = 100; }
+  albaFeed() {
+    // 배고픔 20% 미만 펫에게 인벤의 효과 있는 먹이를 자동 급여
+    for (let i = 0; i < this.pets.length; i++) {
+      const pet = this.pets[i];
+      if (pet.hunger >= 20) continue;
+      const food = this.feedListFor(pet.grade).find((f) => f.usable);
+      if (food) this.feedPetWith(i, food.key);
+    }
+  }
 
   renderHire(body) {
     const wrap = document.createElement("div"); wrap.className = "hire";
@@ -1190,21 +1543,95 @@ class LumiaFarm {
   }
 
   slotCellHtml(sl, cls) {
-    if (sl) { const info = this.itemInfo(sl.key); return `<div class="${cls} filled${info.seed ? " seed" : ""}">${info.emoji}${info.seed ? `<span class="seed-tag">🌱</span>` : ""}<span class="count">${this.fmt(sl.count)}</span></div>`; }
+    if (sl) { const info = this.itemInfo(sl.key); return `<div class="${cls} filled${info.seed ? " seed" : ""}">${this.iconHtml(info.icon, 26, info.emoji)}${info.seed ? `<span class="seed-tag">🌱</span>` : ""}<span class="count">${this.fmt(sl.count)}</span></div>`; }
     return `<div class="${cls} empty"></div>`;
   }
 
+  // 인벤토리 슬롯 위치 교체(드래그 앤 드롭 정렬)
+  reorderInv(from, to) {
+    if (from == null || to == null || from === to) return;
+    const item = this.inv[from];
+    this.inv.splice(from, 1);
+    this.inv.splice(to, 0, item);
+    this.invDrag = null; this.invOver = null;
+    this.hideInvTip();
+    this.renderHotbar(); this.renderShop();
+  }
+  hideInvTip() { if (this.hud.invTip) this.hud.invTip.hidden = true; }
+  // 아이템 호버 툴팁 — 모달 오버레이 레이어(.shop-card)에 하나만 렌더 (스크롤 점프 방지)
+  showInvTip(i, cellEl) {
+    const el = this.hud.invTip; if (!el) return;
+    const sl = this.inv[i]; if (!sl) return;
+    const info = this.itemInfo(sl.key);
+    const C = window.LumiaCrops;
+    const T = info.tier && C ? C.TIERS[info.tier] : null;
+    const cropKey = info.cat === "crop" ? sl.key : (info.cat === "seed" ? info.crop : null);
+    const c = cropKey ? (this.CROPINFO[cropKey] || {}) : {};
+    const isHot = i < 10, hotKey = i === 9 ? "0" : String(i + 1);
+    const catName = info.cat === "seed" ? "씨앗" : info.cat === "tool" ? "도구" : info.cat === "pet" ? "펫" : "작물";
+    let facts = "";
+    if (cropKey) {
+      facts += `<span>🌱 ${c.regrow ? "♻ 재성장 " + c.regrow : "단일 수확"}</span>`;
+      facts += `<span>🪙 ${this.fmt(info.cat === "seed" ? c.seed || 0 : c.sell || 0)}</span>`;
+      if (info.cat === "crop" && this.FEEDMAP[sl.key]) facts += `<span style="color:#f0a84a">🍖 먹이 가능</span>`;
+    }
+    facts += `<span style="color:${isHot ? "#7fd14f" : "#c98a6a"};font-weight:700">${isHot ? "핫바 " + hotKey + "번" : "핫바 밖"}</span>`;
+    el.innerHTML =
+      `<div class="it-head"><span class="it-ic">${this.iconHtml(info.icon, 30, info.emoji)}</span>` +
+      `<div class="it-t"><span class="it-nm">${info.name} <i>×${this.fmt(sl.count)}</i></span>` +
+      `<span class="it-tier">${T ? `<b style="background:${T.color}">${info.tier}</b> ${T.name}` : catName}</span></div></div>` +
+      `<div class="it-facts">${facts}</div>`;
+    // 위치: 슬롯 기준 아래(공간 없으면 위), 모달 레이어 좌표로 클램프
+    const card = el.closest(".shop-card") || el.parentElement;
+    const r = cellEl.getBoundingClientRect(), o = card.getBoundingClientRect();
+    const tipW = 196, tipH = 108, gap = 8;
+    let left = r.left - o.left + r.width / 2 - tipW / 2;
+    left = Math.max(6, Math.min(left, o.width - tipW - 6));
+    const below = (r.top - o.top + r.height + gap + tipH) <= o.height - 4;
+    const top = below ? (r.top - o.top + r.height + gap) : Math.max(6, r.top - o.top - tipH - gap);
+    el.style.left = left + "px"; el.style.top = top + "px"; el.style.width = tipW + "px";
+    el.hidden = false;
+  }
+
   renderInv(body) {
-    const note = document.createElement("div"); note.className = "inv-note"; note.textContent = "🎒 들고 다니는 아이템 · 하단 핫바는 1~10번 슬롯";
+    const note = document.createElement("div"); note.className = "inv-note inv-note-row";
+    note.innerHTML = `<span>🎒 드래그해서 위치를 바꿀 수 있어요</span><span class="hot-note"><i></i>윗줄 1~10번 = 핫바에 표시</span>`;
     body.appendChild(note);
     if (this.carry) {
       const info = this.CROPINFO[this.carry.crop] || { emoji: "🪴", name: "" };
       const cn = document.createElement("div"); cn.className = "inv-carry";
-      cn.innerHTML = `🪴 화분에 담은 작물 <b>${info.emoji} ${info.name}</b> · 내 농장 빈 흙에서 <b>E</b>로 옮겨 심어요`;
+      cn.innerHTML = `🪴 화분에 담은 작물 <b>${this.iconHtml(info.iconCrop, 16, info.emoji)} ${info.name}</b> · 내 농장 빈 흙에서 <b>E</b>로 옮겨 심어요`;
       body.appendChild(cn);
     }
     const grid = document.createElement("div"); grid.className = "inv-grid";
-    grid.innerHTML = this.inv.map((sl) => this.slotCellHtml(sl, "inv-cell")).join("");
+    this.inv.forEach((sl, i) => {
+      const cell = document.createElement("div");
+      const isHot = i < 10;
+      const info = sl ? this.itemInfo(sl.key) : null;
+      cell.className = `inv-cell ${sl ? "filled" : "empty"}${isHot ? " hot" : ""}${info && info.seed ? " seed" : ""}`;
+      if (sl) {
+        cell.innerHTML = `${isHot ? `<span class="hotkey">${i === 9 ? "0" : i + 1}</span>` : ""}` +
+          this.iconHtml(info.icon, 26, info.emoji) +
+          `${info.seed ? `<span class="seed-tag">🌱</span>` : ""}` +
+          `<span class="count">${this.fmt(sl.count)}</span>`;
+        cell.draggable = true;
+        cell.addEventListener("dragstart", (e) => {
+          try { e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", String(i)); } catch (_) { }
+          this.invDrag = i; this.hideInvTip();
+          cell.classList.add("dragging");
+        });
+        cell.addEventListener("dragend", () => { this.invDrag = null; this.invOver = null; cell.classList.remove("dragging"); grid.querySelectorAll(".inv-cell.over").forEach((c) => c.classList.remove("over")); });
+        cell.addEventListener("mouseenter", () => { if (this.invDrag == null) this.showInvTip(i, cell); });
+        cell.addEventListener("mouseleave", () => this.hideInvTip());
+      } else if (isHot) {
+        cell.innerHTML = `<span class="hotkey dim">${i === 9 ? "0" : i + 1}</span>`;
+      }
+      // 빈 칸 포함 모든 칸이 드롭 대상
+      cell.addEventListener("dragenter", (e) => { e.preventDefault(); if (this.invDrag != null) { grid.querySelectorAll(".inv-cell.over").forEach((c) => c.classList.remove("over")); cell.classList.add("over"); } });
+      cell.addEventListener("dragover", (e) => { e.preventDefault(); try { e.dataTransfer.dropEffect = "move"; } catch (_) { } });
+      cell.addEventListener("drop", (e) => { e.preventDefault(); this.reorderInv(this.invDrag, i); });
+      grid.appendChild(cell);
+    });
     body.appendChild(grid);
   }
 
@@ -1250,7 +1677,7 @@ class LumiaFarm {
   mkStoreCell(sl, dir, i) {
     const div = document.createElement("div");
     div.className = "store-cell " + (sl ? "filled" : "empty");
-    if (sl) { const info = this.itemInfo(sl.key); div.innerHTML = `${info.emoji}${info.seed ? `<span class="seed-tag">🌱</span>` : ""}<span class="count">${this.fmt(sl.count)}</span>`; div.addEventListener("click", (e) => this.transfer(dir, i, e.shiftKey ? "all" : 1)); }
+    if (sl) { const info = this.itemInfo(sl.key); div.innerHTML = `${this.iconHtml(info.icon, 22, info.emoji)}${info.seed ? `<span class="seed-tag">🌱</span>` : ""}<span class="count">${this.fmt(sl.count)}</span>`; div.addEventListener("click", (e) => this.transfer(dir, i, e.shiftKey ? "all" : 1)); }
     return div;
   }
 
@@ -1429,89 +1856,40 @@ class LumiaFarm {
     x.textAlign = "left";
   }
 
-  cropPalette() {
-    return {
-      carrot: { leaf: "#5fbf3f", leaf2: "#74d654", fruit: "#ff8a3d", fruit2: "#ffb066", dark: "#d96a1c" },
-      wheat: { leaf: "#cdae54", leaf2: "#e7cf6e", fruit: "#f2d877", fruit2: "#fff0a8", dark: "#b8923a" },
-      strawberry: { leaf: "#4fb53a", leaf2: "#69cf52", fruit: "#ef3d54", fruit2: "#ff6e80", dark: "#c01f37" },
-      pumpkin: { leaf: "#4aa838", leaf2: "#63c24e", fruit: "#ff9326", fruit2: "#ffb35a", dark: "#d86c12" },
-      star: { leaf: "#7b5fd6", leaf2: "#9a82e8", fruit: "#54e0e8", fruit2: "#aef6fa", dark: "#c46bf0" },
-    };
-  }
-
   drawCrops(x, ox, oy) {
-    const T = this.TILE, pal = this.cropPalette();
+    const T = this.TILE, C = window.LumiaCrops;
     const list = [...this.crops].sort((a, b) => a.gy - b.gy);
     for (const c of list) {
       const cx = c.gx * T + ox + T / 2;
       const cy = c.gy * T + oy + T / 2;
-      const p = pal[c.crop] || pal.carrot;
       const bob = c.ready ? Math.sin(this.t * .08 + c.sway) * 2 : 0;
-      const sway = Math.sin(this.t * .035 + c.sway) * (c.stage > 0 ? 1.4 : 0.6);
+      // 두둑 그림자
       x.fillStyle = "rgba(40,22,8,.30)"; x.beginPath(); x.ellipse(cx, cy + 11, 9, 3.4, 0, 0, 6.28); x.fill();
       if (c.ready) {
         const gl = 0.5 + 0.5 * Math.sin(this.t * .08 + c.sway);
-        const rg = x.createRadialGradient(cx, cy + bob - 2, 1, cx, cy + bob - 2, 18);
-        rg.addColorStop(0, `rgba(255,232,120,${.34 + gl * .18})`); rg.addColorStop(1, "rgba(255,232,120,0)");
-        x.fillStyle = rg; x.fillRect(cx - 18, cy + bob - 20, 36, 36);
+        const rg = x.createRadialGradient(cx, cy + bob - 6, 1, cx, cy + bob - 6, 20);
+        rg.addColorStop(0, `rgba(255,232,120,${.32 + gl * .18})`); rg.addColorStop(1, "rgba(255,232,120,0)");
+        x.fillStyle = rg; x.fillRect(cx - 20, cy + bob - 26, 40, 42);
       }
-      x.save(); x.translate(cx, cy + bob); x.translate(sway, 0);
-      this.drawPlant(x, c.crop, c.stage, c.ready, p);
-      x.restore();
+      if (C) {
+        if (c.stage <= 0) { this.drawSprout(x, cx, cy + 11); }
+        else {
+          const scale = c.stage === 1 ? 0.7 : (c.ready ? 1.05 : 0.92);
+          if (!c.ready) x.globalAlpha = 0.92;
+          C.drawCrop(x, c.crop, cx, cy + 11 + bob, scale, { t: this.t * .05, mound: false, phase: c.sway });
+          x.globalAlpha = 1;
+        }
+      } else { this.drawSprout(x, cx, cy + 11); }
       if (c.ready && this.rnd(c.gx, c.gy, Math.floor(this.t * .1)) > .6) {
-        const sx = cx + (this.rnd(c.gx, c.gy, 7) - .5) * 22, sy = cy + bob - 12 - this.rnd(c.gy, c.gx, 8) * 10;
+        const sx = cx + (this.rnd(c.gx, c.gy, 7) - .5) * 22, sy = cy + bob - 14 - this.rnd(c.gy, c.gx, 8) * 10;
         this.drawSparkle(x, sx, sy, 2 + this.rnd(c.gx, c.gy, 9) * 2);
       }
     }
   }
-
-  // (0,0) 중심으로 식물 그리기, baseline ~ y=10
-  drawPlant(x, crop, stage, ready, p) {
-    const block = (bx, by, w, h, col) => { x.fillStyle = col; x.fillRect(Math.round(bx), Math.round(by), w, h); };
-    if (stage === 0) {
-      block(-1, 4, 2, 5, "#5e371b");
-      block(-1, 2, 2, 3, p.leaf);
-      block(-4, 2, 3, 2, p.leaf2); block(2, 1, 3, 2, p.leaf2);
-      block(-1, -1, 2, 3, p.leaf2);
-      return;
-    }
-    if (crop === "carrot") {
-      block(-2, 2, 4, 7, p.dark);
-      block(-1, 4, 2, 5, p.fruit);
-      for (let i = -3; i <= 3; i += 2) { block(i, -6 - (3 - Math.abs(i)), 2, 9, i % 2 ? p.leaf : p.leaf2); }
-      block(-4, -3, 8, 4, p.leaf); block(-3, -6, 6, 3, p.leaf2);
-      if (stage >= 2) { block(-2, 7, 4, 4, p.fruit2); block(-1, 9, 2, 2, p.dark); }
-    } else if (crop === "wheat") {
-      block(-3, -2, 2, 12, p.leaf); block(1, -2, 2, 12, p.leaf);
-      block(-1, -8, 2, 18, p.leaf2);
-      if (stage >= 2) { for (let i = -3; i <= 3; i += 3) { block(i, -9, 2, 3, p.fruit); block(i, -6, 2, 3, p.fruit2); block(i, -3, 2, 3, p.fruit); } block(-1, -11, 2, 3, p.dark); }
-    } else if (crop === "strawberry") {
-      block(-5, 0, 10, 8, p.leaf); block(-6, 2, 12, 5, p.leaf2);
-      block(-4, -2, 3, 3, p.leaf); block(2, -2, 3, 3, p.leaf);
-      if (stage >= 2) {
-        const berries = [[-4, 4], [2, 5], [-1, 7], [4, 2]];
-        berries.forEach((b) => { block(b[0], b[1], 4, 4, p.fruit); block(b[0], b[1], 4, 1, p.fruit2); block(b[0] + 1, b[1] + 1, 1, 1, "#fff"); });
-      }
-    } else if (crop === "pumpkin") {
-      block(-3, -4, 2, 6, p.leaf); block(-6, -5, 5, 3, p.leaf2); block(2, -4, 5, 3, p.leaf2);
-      if (stage >= 2) {
-        block(-7, 2, 14, 9, p.fruit); block(-8, 4, 16, 5, p.fruit2); block(-7, 2, 14, 2, p.fruit2);
-        block(-5, 2, 2, 9, p.dark); block(0, 2, 2, 9, p.dark); block(5, 2, 2, 9, p.dark);
-        block(-1, -3, 2, 5, "#6b4a1f");
-      } else { block(-4, 3, 8, 6, p.fruit); }
-    } else if (crop === "star") {
-      block(-1, 0, 2, 9, p.leaf); block(-4, -1, 3, 2, p.leaf2); block(2, -2, 3, 2, p.leaf2);
-      block(-3, 3, 6, 5, p.leaf);
-      if (stage >= 2) {
-        const s = ready ? 1 : .85;
-        x.save(); x.translate(0, -3); x.scale(s, s);
-        x.fillStyle = p.fruit; x.beginPath();
-        for (let i = 0; i < 5; i++) { const a = -Math.PI / 2 + i * 2 * Math.PI / 5; x.lineTo(Math.cos(a) * 6, Math.sin(a) * 6); const a2 = a + Math.PI / 5; x.lineTo(Math.cos(a2) * 2.6, Math.sin(a2) * 2.6); }
-        x.closePath(); x.fill();
-        x.fillStyle = p.fruit2; x.fillRect(-1, -2, 2, 2);
-        x.restore();
-      }
-    }
+  drawSprout(x, cx, gy) {
+    x.fillStyle = "#5e371b"; x.fillRect(cx - 1, gy - 6, 2, 6);
+    x.fillStyle = "#6cc23e"; x.fillRect(cx - 1, gy - 9, 2, 4);
+    x.fillStyle = "#8ad055"; x.fillRect(cx - 5, gy - 8, 4, 2); x.fillRect(cx + 1, gy - 10, 4, 2);
   }
 
   drawSparkle(x, sx, sy, r) {
@@ -1524,30 +1902,46 @@ class LumiaFarm {
 
   // 화분에 담은 작물을 플레이어 머리 위에 표시
   drawCarry(x, ox, oy) {
-    const T = this.TILE;
-    const info = this.CROPINFO[this.carry.crop] || { emoji: "🪴" };
+    const T = this.TILE, C = window.LumiaCrops;
     const px = Math.round(this.player.x + ox), py = Math.round(this.player.y + oy - T * 1.0 + Math.sin(this.t * 0.06) * 2);
     x.save();
     x.fillStyle = "rgba(255,247,236,.95)"; x.strokeStyle = "#b08a4a"; x.lineWidth = 2;
     x.beginPath(); x.arc(px, py, T * 0.32, 0, 6.28); x.fill(); x.stroke();
-    x.textAlign = "center"; x.textBaseline = "middle"; x.font = Math.round(T * 0.4) + "px serif";
-    x.fillText(info.emoji, px, py);
+    if (C) { C.drawFruit(x, this.carry.crop, px, py, 0.62); }
+    else {
+      const info = this.CROPINFO[this.carry.crop] || { emoji: "🪴" };
+      x.textAlign = "center"; x.textBaseline = "middle"; x.font = Math.round(T * 0.4) + "px serif";
+      x.fillText(info.emoji, px, py);
+    }
     x.restore();
   }
 
   drawPets(x, ox, oy) {
-    const T = this.TILE;
-    x.save();
-    x.textAlign = "center"; x.textBaseline = "middle";
-    x.font = Math.round(T * 0.62) + "px serif";
+    const P = window.LumiaPets;
     for (const pet of this.pets) {
       const px = Math.round(pet.x + ox), py = Math.round(pet.y + oy);
-      const bob = Math.sin(pet.bob) * 3;
-      x.fillStyle = "rgba(0,0,0,.18)";
-      x.beginPath(); x.ellipse(px, py + T * 0.28, T * 0.22, T * 0.09, 0, 0, 6.28); x.fill();
-      x.fillText(pet.emoji, px, py - bob);
+      if (P) {
+        const fi = P.frameForMotion(pet.moving, pet.anim);
+        P.drawPet(x, pet.id, px, py, fi, 1.35, { t: this.t * 0.05, aura: pet.starving ? null : pet.ability, badge: !pet.starving });
+        if (pet.starving) this.drawHungryBubble(x, px, py - 46);
+      } else {
+        x.save(); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "24px serif";
+        x.fillText(pet.emoji, px, py - 10); x.restore();
+      }
     }
-    x.restore();
+  }
+  drawHungryBubble(x, cx, cy) {
+    const bob = Math.sin(this.t * .12) * 1.5;
+    const y = cy + bob;
+    x.font = "700 11px 'Noto Sans KR', sans-serif"; x.textAlign = "center";
+    const txt = "😢 배고파요";
+    const w = x.measureText(txt).width + 16, h = 19;
+    x.fillStyle = "rgba(60,30,18,.92)";
+    this.roundRect(x, cx - w / 2, y - h, w, h, 6); x.fill();
+    x.strokeStyle = "rgba(255,150,120,.7)"; x.lineWidth = 1.4; this.roundRect(x, cx - w / 2, y - h, w, h, 6); x.stroke();
+    x.fillStyle = "rgba(60,30,18,.92)"; x.beginPath(); x.moveTo(cx - 4, y - 1); x.lineTo(cx + 4, y - 1); x.lineTo(cx, y + 4); x.closePath(); x.fill();
+    x.fillStyle = "#ffe0d0"; x.fillText(txt, cx, y - 5);
+    x.textAlign = "left";
   }
 
   drawPlayers(x, ox, oy) {

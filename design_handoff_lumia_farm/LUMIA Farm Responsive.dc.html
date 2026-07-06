@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Jua&amp;family=Press+Start+2P&amp;family=Noto+Sans+KR:wght@400;500;700;800;900&amp;display=swap" rel="stylesheet">
+<style>
+  * { box-sizing:border-box; }
+  img { image-rendering:pixelated; }
+  .fscroll::-webkit-scrollbar { height:6px; width:6px; }
+  .fscroll::-webkit-scrollbar-thumb { background:rgba(185,146,90,.6); border-radius:3px; }
+</style>
+</helmet>
+
+<div style="min-height:100vh; padding:60px 56px; background:radial-gradient(130% 90% at 50% 0%, #1b2030 0%, #0e0f17 72%); font-family:'Noto Sans KR',sans-serif;">
+
+  <!-- ==================== TURN 1 ==================== -->
+  <section style="display:flex; flex-direction:column; gap:8px;">
+    <div style="display:flex; align-items:baseline; gap:14px; margin-bottom:20px;">
+      <span style="font-family:'Press Start 2P'; font-size:13px; color:#ffd98a; background:rgba(40,26,14,.9); padding:10px 12px; border-radius:8px; box-shadow:inset 0 0 0 1.5px rgba(200,169,110,.5);">LUMIA FARM</span>
+      <span style="font-family:'Jua'; font-size:26px; color:#fff4dd;">반응형 레이아웃 · 2가지</span>
+      <span style="font-size:14px; color:#8a9a7e;">같은 화면을 데스크톱(가로)과 폰(세로)에 맞춰 재배치</span>
+    </div>
+
+    <div style="display:flex; align-items:flex-start; gap:64px; flex-wrap:wrap;">
+
+      <!-- ---------- 1a DESKTOP ---------- -->
+      <div id="1a" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-family:'Press Start 2P'; font-size:11px; color:#0e0f17; background:#ffd98a; padding:6px 8px; border-radius:6px;">1a</span>
+          <span style="font-family:'Jua'; font-size:20px; color:#fff4dd;">💻 데스크톱 · 1280×800</span>
+        </div>
+
+        <!-- browser chrome -->
+        <div style="width:1080px; border-radius:14px; overflow:hidden; background:#211a12; box-shadow:0 30px 80px -24px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.05);">
+          <div style="display:flex; align-items:center; gap:10px; padding:11px 14px; background:#2b221733;">
+            <span style="display:flex; gap:7px;"><span style="width:12px; height:12px; border-radius:50%; background:#ff5f57;"></span><span style="width:12px; height:12px; border-radius:50%; background:#febc2e;"></span><span style="width:12px; height:12px; border-radius:50%; background:#28c840;"></span></span>
+            <div style="flex:1; margin-left:8px; display:flex; align-items:center; gap:8px; padding:6px 12px; border-radius:8px; background:rgba(255,255,255,.06); color:#9a8e78; font-size:12px;">🔒 lumia.farm/play</div>
+          </div>
+
+          <!-- desktop game screen -->
+          <div style="position:relative; height:640px; overflow:hidden; background:#243018;">
+            <img src="assets/farm-desktop.png" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;">
+            <div style="position:absolute; inset:0; background:linear-gradient(180deg, rgba(46,30,18,.55) 0%, rgba(46,30,18,0) 16%);"></div>
+
+            <!-- TOP BAR -->
+            <div style="position:absolute; top:0; left:0; right:0; display:flex; align-items:center; justify-content:space-between; padding:12px 16px;">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:38px; height:38px; border-radius:6px; background:linear-gradient(180deg,#ffd98a,#e8a24a); box-shadow:0 0 0 2px #3a2614, inset 0 2px 0 rgba(255,255,255,.5); display:flex; align-items:center; justify-content:center; font-size:20px;">🦊</div>
+                <div style="display:flex; flex-direction:column; gap:2px;">
+                  <span style="color:#fff4dd; font-weight:800; font-size:14px; text-shadow:0 1px 2px rgba(0,0,0,.6);">Kyle</span>
+                  <span style="font-family:'Press Start 2P'; font-size:7px; color:#ffd98a;">Lv 3 · 농장</span>
+                </div>
+              </div>
+              <div style="display:flex; align-items:center; gap:9px;">
+                <div style="display:flex; align-items:center; gap:6px; padding:7px 12px 7px 9px; border-radius:7px; background:rgba(28,18,10,.85); box-shadow:inset 0 0 0 1.5px rgba(200,169,110,.5);"><span style="font-size:14px;">🪙</span><span style="font-family:'Press Start 2P'; font-size:10px; color:#f0cf8e;">1,234</span></div>
+                <div style="display:flex; align-items:center; gap:6px; padding:7px 12px 7px 9px; border-radius:7px; background:rgba(10,22,30,.85); box-shadow:inset 0 0 0 1.5px rgba(79,195,247,.45);"><span style="font-size:14px;">🌾</span><span style="font-family:'Press Start 2P'; font-size:10px; color:#9fdcff;">567</span></div>
+                <div style="width:38px; height:36px; border-radius:7px; background:rgba(28,18,10,.85); box-shadow:inset 0 0 0 1.5px rgba(200,169,110,.5); color:#f0cf8e; font-size:18px; display:flex; align-items:center; justify-content:center;">🎒</div>
+              </div>
+            </div>
+
+            <!-- LEFT PET COLUMN -->
+            <div style="position:absolute; top:66px; left:16px; display:flex; flex-direction:column; gap:8px; width:190px;">
+              <span style="font-family:'Press Start 2P'; font-size:7px; color:#ffd98a; padding-left:3px; text-shadow:0 1px 2px rgba(0,0,0,.75);">장착한 펫 3/3</span>
+              <div style="display:flex; flex-direction:column; gap:7px;">
+                <dc-import name="PetCard" species="루미" grade="에픽" gradeColor="#9a68e0" pet="lumi" ability="🌾 수확 도우미" hunger="97" hint-size="190px,86px"></dc-import>
+                <dc-import name="PetCard" species="여우" grade="레어" gradeColor="#3f9fd6" pet="fox" ability="💰 행운의 상인" hunger="80" hint-size="190px,86px"></dc-import>
+                <dc-import name="PetCard" species="삐약이" grade="커먼" gradeColor="#7fa844" pet="chick" ability="🌱 씨앗 수집가" hunger="72" hint-size="190px,86px"></dc-import>
+              </div>
+            </div>
+
+            <!-- RIGHT EVENT LOG -->
+            <div style="position:absolute; top:90px; right:16px; display:flex; flex-direction:column; align-items:flex-end; gap:6px;">
+              <dc-import name="LogPill" name2="루미" verb="가 수확했어요" emoji="🥕" item="당근" hint-size="230px,38px"></dc-import>
+              <dc-import name="LogPill" name2="삐약이" verb="가 씨앗을 찾았어요" emoji="🌽" item="옥수수" hint-size="230px,38px"></dc-import>
+              <dc-import name="LogPill" name2="여우" verb="가 동전을 주웠어요" emoji="🪙" item="+18 G" hint-size="230px,38px"></dc-import>
+            </div>
+
+            <!-- HOTBAR -->
+            <div style="position:absolute; bottom:16px; left:50%; transform:translateX(-50%); display:flex; gap:5px; padding:6px; border-radius:12px; background:rgba(28,18,10,.8); box-shadow:0 5px 16px -4px rgba(0,0,0,.55), inset 0 0 0 1.5px rgba(200,169,110,.4);">
+              <dc-import name="Hotbar" size="48" hint-size="560px,60px"></dc-import>
+            </div>
+          </div>
+        </div>
+        <span style="font-size:12.5px; color:#8a9a7e; max-width:1080px; line-height:1.6;">넓은 가로 화면 — 펫 목록은 <b style="color:#c7b58e;">좌측 세로 컬럼</b>, 이벤트 로그는 <b style="color:#c7b58e;">우측 상단</b>, 핫바는 하단 중앙에 여유롭게 배치. 농장이 화면 대부분을 차지합니다.</span>
+      </div>
+
+      <!-- ---------- 1b PHONE ---------- -->
+      <div id="1b" style="display:flex; flex-direction:column; gap:14px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span style="font-family:'Press Start 2P'; font-size:11px; color:#0e0f17; background:#ffd98a; padding:6px 8px; border-radius:6px;">1b</span>
+          <span style="font-family:'Jua'; font-size:20px; color:#fff4dd;">📱 폰 · 390×844</span>
+        </div>
+
+        <!-- phone bezel -->
+        <div style="width:390px; height:820px; border-radius:52px; padding:13px; background:linear-gradient(160deg,#2a2a30,#141418); box-shadow:0 34px 90px -26px rgba(0,0,0,.85), inset 0 0 0 2px rgba(255,255,255,.06), 0 0 0 2px #000;">
+          <div style="position:relative; width:100%; height:100%; border-radius:40px; overflow:hidden; background:#243018;">
+            <!-- notch -->
+            <div style="position:absolute; top:10px; left:50%; transform:translateX(-50%); width:120px; height:26px; border-radius:16px; background:#000; z-index:20;"></div>
+            <!-- status bar -->
+            <div style="position:absolute; top:0; left:0; right:0; height:44px; display:flex; align-items:center; justify-content:space-between; padding:14px 24px 0; z-index:15; color:#fff; font-size:13px; font-weight:700; pointer-events:none;">
+              <span>9:41</span>
+              <span style="display:flex; gap:5px; align-items:center; font-size:12px;">▂▄▆ 􀙇 100%</span>
+            </div>
+
+            <!-- COMPACT TOP BAR -->
+            <div style="position:absolute; top:44px; left:0; right:0; display:flex; align-items:center; justify-content:space-between; padding:8px 12px; z-index:12; background:linear-gradient(180deg, rgba(46,30,18,.94) 0%, rgba(46,30,18,.5) 80%, rgba(46,30,18,0) 100%);">
+              <div style="display:flex; align-items:center; gap:7px;">
+                <div style="width:30px; height:30px; border-radius:6px; background:linear-gradient(180deg,#ffd98a,#e8a24a); box-shadow:0 0 0 2px #3a2614; display:flex; align-items:center; justify-content:center; font-size:16px;">🦊</div>
+                <span style="color:#fff4dd; font-weight:800; font-size:13px;">Kyle</span>
+              </div>
+              <div style="display:flex; align-items:center; gap:6px;">
+                <div style="display:flex; align-items:center; gap:4px; padding:5px 9px 5px 7px; border-radius:6px; background:rgba(28,18,10,.85); box-shadow:inset 0 0 0 1.5px rgba(200,169,110,.5);"><span style="font-size:12px;">🪙</span><span style="font-family:'Press Start 2P'; font-size:8px; color:#f0cf8e;">1,234</span></div>
+                <div style="display:flex; align-items:center; gap:4px; padding:5px 9px 5px 7px; border-radius:6px; background:rgba(10,22,30,.85); box-shadow:inset 0 0 0 1.5px rgba(79,195,247,.45);"><span style="font-size:12px;">🌾</span><span style="font-family:'Press Start 2P'; font-size:8px; color:#9fdcff;">567</span></div>
+                <div style="width:32px; height:30px; border-radius:6px; background:rgba(28,18,10,.85); box-shadow:inset 0 0 0 1.5px rgba(200,169,110,.5); color:#f0cf8e; font-size:15px; display:flex; align-items:center; justify-content:center;">🎒</div>
+              </div>
+            </div>
+
+            <!-- EVENT LOG (under top bar, right) -->
+            <div style="position:absolute; top:96px; right:10px; display:flex; flex-direction:column; align-items:flex-end; gap:5px; z-index:11;">
+              <dc-import name="LogPill" name2="루미" verb="가 수확했어요" emoji="🥕" item="당근" compact="1" hint-size="188px,32px"></dc-import>
+              <dc-import name="LogPill" name2="여우" verb="" emoji="🪙" item="+18 G" compact="1" hint-size="150px,32px"></dc-import>
+            </div>
+
+            <!-- FARM (fills middle) -->
+            <div style="position:absolute; top:88px; bottom:214px; left:0; right:0; overflow:hidden;">
+              <img src="assets/farm-phone.png" style="width:100%; height:100%; object-fit:cover;">
+            </div>
+
+            <!-- PET STRIP (horizontal scroll) -->
+            <div style="position:absolute; bottom:96px; left:0; right:0; padding:8px 10px 6px; z-index:12; background:linear-gradient(0deg, rgba(20,13,7,.96) 30%, rgba(20,13,7,0));">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; padding:0 2px;">
+                <span style="font-family:'Press Start 2P'; font-size:7px; color:#ffd98a;">장착한 펫 3/3</span>
+                <span style="font-size:10px; color:#9a8e78;">옆으로 밀어보기 →</span>
+              </div>
+              <div class="fscroll" style="display:flex; gap:8px; overflow-x:auto; padding-bottom:4px;">
+                <dc-import name="PetCardH" species="루미" grade="에픽" gradeColor="#9a68e0" pet="lumi" ability="🌾 수확" hunger="97" hint-size="150px,56px"></dc-import>
+                <dc-import name="PetCardH" species="여우" grade="레어" gradeColor="#3f9fd6" pet="fox" ability="💰 상인" hunger="80" hint-size="150px,56px"></dc-import>
+                <dc-import name="PetCardH" species="삐약이" grade="커먼" gradeColor="#7fa844" pet="chick" ability="🌱 씨앗" hunger="72" hint-size="150px,56px"></dc-import>
+              </div>
+            </div>
+
+            <!-- HOTBAR (bottom, scrollable) -->
+            <div style="position:absolute; bottom:26px; left:8px; right:8px; z-index:12;">
+              <div class="fscroll" style="display:flex; gap:4px; overflow-x:auto; padding:6px; border-radius:12px; background:rgba(28,18,10,.82); box-shadow:0 5px 16px -4px rgba(0,0,0,.55), inset 0 0 0 1.5px rgba(200,169,110,.4);">
+                <dc-import name="Hotbar" size="42" hint-size="440px,54px"></dc-import>
+              </div>
+            </div>
+
+            <!-- home indicator -->
+            <div style="position:absolute; bottom:8px; left:50%; transform:translateX(-50%); width:130px; height:5px; border-radius:3px; background:rgba(255,255,255,.55); z-index:20;"></div>
+          </div>
+        </div>
+        <span style="font-size:12.5px; color:#8a9a7e; max-width:390px; line-height:1.6;">세로 화면 — 상단은 <b style="color:#c7b58e;">압축 바</b>, 농장이 가운데를 채우고, 펫은 <b style="color:#c7b58e;">가로 스크롤 스트립</b>, 핫바도 <b style="color:#c7b58e;">가로 스크롤</b>로 하단 고정. 이벤트 로그는 상단 우측 오버레이.</span>
+      </div>
+
+    </div>
+  </section>
+</div>
+</x-dc>
+</body>
+</html>
