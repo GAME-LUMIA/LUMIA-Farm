@@ -101,6 +101,9 @@ class LumiaFarm {
     // 알바: 심기/판매(1~5LV), 펫먹이(1명, 중반 해금)
     this.alba = { plant: { lv: 0, max: 5, timer: 0 }, feed: { hired: false, timer: 0 }, sell: { lv: 0, max: 5, timer: 0 } };
     this.FEED_UNLOCK_LV = 3; // 펫먹이 알바 해금 농장레벨(중반)
+    // 렌더 배율 — 플레이어 ↔ 펫 크기 스왑 (플레이어가 펫보다 크게)
+    this.CHAR_SCALE = 1.35; // 플레이어(캐릭터): 기존 펫 배율
+    this.PET_SCALE = 1.0;   // 펫: 기존 플레이어 크기 수준
     this.cam = { x: 0, y: 0 };
     this.particles = [];
     this.t = 0;
@@ -1932,7 +1935,7 @@ class LumiaFarm {
   // 화분에 담은 작물을 플레이어 머리 위에 표시
   drawCarry(x, ox, oy) {
     const T = this.TILE, C = window.LumiaCrops;
-    const px = Math.round(this.player.x + ox), py = Math.round(this.player.y + oy - T * 1.0 + Math.sin(this.t * 0.06) * 2);
+    const px = Math.round(this.player.x + ox), py = Math.round(this.player.y + oy - T * 1.3 + Math.sin(this.t * 0.06) * 2); // 커진 캐릭터·이름표 위로
     x.save();
     x.fillStyle = "rgba(255,247,236,.95)"; x.strokeStyle = "#b08a4a"; x.lineWidth = 2;
     x.beginPath(); x.arc(px, py, T * 0.32, 0, 6.28); x.fill(); x.stroke();
@@ -1951,15 +1954,16 @@ class LumiaFarm {
       const px = Math.round(pet.x + ox), py = Math.round(pet.y + oy);
       if (P) {
         const fi = P.frameForMotion(pet.moving, pet.anim);
+        const ps = this.PET_SCALE;
         if (pet.starving) {
           // 제자리에서 우는 모습: 몸을 흔들며 훌쩍임(sob) + 눈물 (디자인 핸드오프 수치)
           const shake = Math.round(Math.sin(this.t * .9) * 1.2);
           const sob = Math.abs(Math.sin(this.t * .14)) * 2;
-          P.drawPet(x, pet.id, px + shake, py, fi, 1.35, { t: this.t * 0.05, aura: null, badge: false, hover: sob });
+          P.drawPet(x, pet.id, px + shake, py, fi, ps, { t: this.t * 0.05, aura: null, badge: false, hover: sob });
           this.drawTears(x, px + shake, py);
-          this.drawHungryBubble(x, px, py - 46);
+          this.drawHungryBubble(x, px, py - Math.round(28 * ps + 8));
         } else {
-          P.drawPet(x, pet.id, px, py, fi, 1.35, { t: this.t * 0.05, aura: pet.ability, badge: true });
+          P.drawPet(x, pet.id, px, py, fi, ps, { t: this.t * 0.05, aura: pet.ability, badge: true });
         }
       } else {
         x.save(); x.textAlign = "center"; x.textBaseline = "middle"; x.font = "24px serif";
@@ -1967,19 +1971,19 @@ class LumiaFarm {
       }
     }
   }
-  // 눈가 양쪽에서 또르르 떨어지는 눈물 (디자인 핸드오프: 눈 높이가 훌쩍임을 따라감)
+  // 눈가 양쪽에서 또르르 떨어지는 눈물 (디자인 핸드오프: 눈 높이가 훌쩍임을 따라감. 수치는 배율 1.35 기준 → 배율 비례)
   drawTears(x, cx, py) {
-    const s = 1.35;
+    const s = this.PET_SCALE, k = s / 1.35; // 핸드오프 원본 수치의 배율 보정
     const sob = Math.abs(Math.sin(this.t * .14)) * 2;
     const eyeY = py - 13 * s - sob * s; // 얼굴 눈 높이
-    for (const dx of [-6, 6]) {
+    for (const dx of [-6 * k, 6 * k]) {
       const drip = (this.t * 0.9 + (dx < 0 ? 0 : 1.6)) % 6; // 0~6 반복 낙하
-      const ty = eyeY + drip * 3.2;
+      const ty = eyeY + drip * 3.2 * k;
       const alpha = drip > 5 ? (6 - drip) : 1; // 사라질 때 페이드
       x.save();
       x.globalAlpha = 0.9 * alpha;
       x.fillStyle = "#8fd6ff";
-      x.beginPath(); x.ellipse(cx + dx, ty, 1.8, 2.6, 0, 0, 6.28); x.fill();
+      x.beginPath(); x.ellipse(cx + dx, ty, 1.8 * k, 2.6 * k, 0, 0, 6.28); x.fill();
       x.fillStyle = "rgba(255,255,255,.9)"; x.fillRect(cx + dx - 0.6, ty - 1, 1, 1);
       x.restore();
     }
@@ -2008,10 +2012,13 @@ class LumiaFarm {
   }
 
   drawChar(x, px, py, color, name, me, anim, moving, dir) {
+    const s = this.CHAR_SCALE; // 발밑(그림자) 기준으로 몸통 확대 — 펫과 크기 스왑
     const hop = moving ? Math.abs(Math.sin(anim * Math.PI)) * 3 : Math.sin(this.t * .05) * 1;
     const bx = Math.round(px), by = Math.round(py - hop);
     const d = dir || 1;
     const dk = this.shade(color, -28), lt = this.shade(color, 30);
+    x.save();
+    x.translate(bx, py + 12); x.scale(s, s); x.translate(-bx, -(py + 12));
     x.globalAlpha = me ? .28 : .2; x.fillStyle = "#1a1206"; x.beginPath(); x.ellipse(bx, py + 12, 11, 4, 0, 0, 6.28); x.fill(); x.globalAlpha = 1;
     x.fillStyle = dk; const ft = moving ? Math.sin(anim * Math.PI * 2) * 2 : 0;
     x.fillRect(bx - 6, by + 9 + ft, 4, 3); x.fillRect(bx + 2, by + 9 - ft, 4, 3);
@@ -2023,12 +2030,15 @@ class LumiaFarm {
     x.fillStyle = "#2a1c10"; x.fillRect(bx - 4 + (d > 0 ? 1 : -1), by - 3, 2, 3); x.fillRect(bx + 2 + (d > 0 ? 1 : -1), by - 3, 2, 3);
     x.fillStyle = "#fff"; x.fillRect(bx - 4 + (d > 0 ? 1 : -1), by - 3, 1, 1); x.fillRect(bx + 2 + (d > 0 ? 1 : -1), by - 3, 1, 1);
     x.fillStyle = "rgba(255,140,150,.5)"; x.fillRect(bx - 6, by, 2, 2); x.fillRect(bx + 4, by, 2, 2);
+    x.restore();
+    // 이름표는 확대 없이 커진 머리 위에 배치 (머리 꼭대기 = 지면에서 (22+hop)*s 위)
+    const headTop = Math.round(py + 12 - (22 + hop) * s);
     x.font = "700 10px 'Noto Sans KR'"; x.textAlign = "center";
     const tw = x.measureText(name).width + 12;
     x.fillStyle = me ? "rgba(60,40,18,.92)" : "rgba(30,30,40,.8)";
-    this.roundRect(x, bx - tw / 2, by - 26, tw, 14, 3); x.fill();
-    if (me) { x.strokeStyle = "rgba(255,210,120,.6)"; x.lineWidth = 1; this.roundRect(x, bx - tw / 2, by - 26, tw, 14, 3); x.stroke(); }
-    x.fillStyle = me ? "#ffe6b3" : "#e8e8f0"; x.fillText(name, bx, by - 16);
+    this.roundRect(x, bx - tw / 2, headTop - 16, tw, 14, 3); x.fill();
+    if (me) { x.strokeStyle = "rgba(255,210,120,.6)"; x.lineWidth = 1; this.roundRect(x, bx - tw / 2, headTop - 16, tw, 14, 3); x.stroke(); }
+    x.fillStyle = me ? "#ffe6b3" : "#e8e8f0"; x.fillText(name, bx, headTop - 6);
     x.textAlign = "left";
   }
 
