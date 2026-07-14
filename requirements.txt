@@ -3,3 +3,4 @@ uvicorn
 aiosqlite
 python-dotenv
 libsql-client
+httpx

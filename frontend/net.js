@@ -3,7 +3,8 @@
 // 서버가 없거나 실패하면 game.js 는 오프라인 데모 모드로 동작한다.
 
 const Net = (() => {
-  const API = "/api";
+  // 디스코드 액티비티 iframe(frame_id 쿼리)에서는 디스코드 프록시(/.proxy) 경유가 강제됨
+  const API = new URLSearchParams(location.search).has("frame_id") ? "/.proxy/api" : "/api";
   const S = { userId: null, token: null };
 
   // 브라우저별 고정 유저 ID (디스코드 OAuth 연동 전 임시)
@@ -47,8 +48,14 @@ const Net = (() => {
     return S.userId;
   }
 
+  // 디스코드 OAuth 등 외부에서 이미 발급받은 HMAC 세션을 주입
+  function session(userId, token) {
+    S.userId = userId; S.token = token || null;
+    return S.userId;
+  }
+
   return {
-    uid, login,
+    uid, login, session,
     get userId() { return S.userId; },
 
     // ---- 월드 ----

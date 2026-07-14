@@ -496,17 +496,28 @@ class LumiaFarm {
   // ---------- 서버 연동 (M2-2: net.js → v2 서버 권위 상태) ----------
   // join 성공 → 온라인 모드: 모든 상태 변경을 서버가 확정하고, 응답으로 로컬 상태를 갱신한다.
   // join 실패 → 오프라인 데모 모드: 기존 in-memory 로직 그대로.
-  async connect() {
+  // ds = 디스코드 액티비티 세션(discord.js setup 결과) 또는 null(웹 데모)
+  async connect(ds) {
     if (typeof Net === "undefined") return false;
     try {
-      await Net.login();
-      const snap = await Net.join(null, this.name);
+      let guildId = null;
+      if (ds) { // 디스코드: OAuth로 발급된 세션 + 길드 월드
+        Net.session(ds.userId, ds.token);
+        this.name = ds.name || this.name;
+        guildId = ds.guildId;
+      } else {
+        await Net.login();
+      }
+      const snap = await Net.join(guildId, this.name);
       this.online = true;
       this.applySnapshot(snap);
       this.flash("🌐 서버 연결 — 농장 데이터를 불러왔어요");
       return true;
     } catch (e) {
       this.online = false;
+      if (ds || e.status === 409) { // 디스코드 모드/정원 초과는 데모 폴백 대신 사유 표시
+        this.flash((e && e.message) || "서버 연결에 실패했어요", false);
+      }
       return false;
     }
   }
@@ -2423,7 +2434,13 @@ window.addEventListener("DOMContentLoaded", async () => {
   const game = new LumiaFarm(canvas);
   window.__lumia = game; // 디버깅 편의
 
+  // M1: 디스코드 액티비티 iframe이면 SDK 셋업(OAuth2) 먼저 — 아니면 null(웹 데모)
+  let ds = null;
+  if (typeof DiscordShell !== "undefined" && DiscordShell.embedded) {
+    try { ds = await DiscordShell.setup(); }
+    catch (e) { console.warn("LUMIA Farm: 디스코드 셋업 실패", e); game.flash("디스코드 연동 실패 — " + e.message, false); }
+  }
   // v2 백엔드 연동(net.js) — join 성공 시 서버 권위 모드, 실패하면 오프라인 데모로 동작
-  const ok = await game.connect();
+  const ok = await game.connect(ds);
   if (!ok) console.warn("LUMIA Farm: 백엔드 미가동 — 오프라인 데모 모드");
 });
