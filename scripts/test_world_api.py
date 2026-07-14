@@ -165,7 +165,9 @@ with TestClient(app) as client:
     # ---------- 업그레이드 ----------
     r = client.post("/api/market/upgrade", json={"kind": "land", "world_id": WID}, headers=hdr(U))
     ok(r.status_code == 200 and r.json()["land_lv"] == 2, "땅 업그레이드 Lv2 (-80LN)")
-    r = client.post("/api/world/plant", json={"world_id": WID, "r": 1, "c": 0, "crop": "carrot"}, headers=hdr(U))
+    # 펫이 수집한 T1 씨앗과 겹치지 않는 작물로 검증 (씨앗 미보유가 보장돼야 함)
+    probe = "radish" if seed_got == "carrot" else "carrot"
+    r = client.post("/api/world/plant", json={"world_id": WID, "r": 1, "c": 0, "crop": probe}, headers=hdr(U))
     ok(r.status_code == 400 and "씨앗" in r.json()["detail"], "Lv2 → r1 개방(씨앗 없음 에러 = 칸 검증 통과)")
     r = client.post("/api/market/upgrade", json={"kind": "storage"}, headers=hdr(U))
     ok(r.status_code == 200 and r.json()["storage_cap"] == 128, "보관함 업그레이드 → 128칸")
