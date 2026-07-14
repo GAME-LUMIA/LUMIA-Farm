@@ -104,6 +104,10 @@ class LumiaFarm {
     // 렌더 배율 — 플레이어 ↔ 펫 크기 스왑 (플레이어가 펫보다 크게)
     this.CHAR_SCALE = 1.35; // 플레이어(캐릭터): 기존 펫 배율
     this.PET_SCALE = 1.0;   // 펫: 기존 플레이어 크기 수준
+    // 서버 연동(M2-2, net.js) — join 성공 시 서버 권위 모드, 실패 시 오프라인 데모
+    this.online = false;
+    this.worldId = null;
+    this.plotIndex = null;
     this.cam = { x: 0, y: 0 };
     this.particles = [];
     this.t = 0;
@@ -344,6 +348,14 @@ class LumiaFarm {
     const i = this.renameIdx; if (i == null) return;
     const pet = this.pets[i];
     const v = (this.hud.rnInput ? this.hud.rnInput.value : "").trim().slice(0, 10);
+    if (this.online && pet && pet.sid != null) { // 커스텀 이름은 서버 저장
+      Net.petRename(pet.sid, v).then((res) => {
+        this.syncPets(res.pets);
+        this.closeRename();
+        this.flash("✎ " + pet.species + " → “" + (v || pet.species) + "” 로 변경");
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     this.petNames[i] = v || null;
     this.savePetNames(this.petNames);
     this.closeRename();
@@ -387,10 +399,22 @@ class LumiaFarm {
     if (i < 0) { this.flash("여기엔 캘 작물이 없어요", false); return; }
     if (!this.inMyPlot(pgx, pgy)) { this.flash("다른 농장의 작물이에요", false); return; }
     if (this.toolOwned("shovel") < 1) { this.flash("삽이 필요해요 — 도구 상점에서 구매하세요", false); return; }
-    const c = this.crops[i]; this.crops.splice(i, 1); this.nearCrop = null;
+    const c = this.crops[i];
+    if (this.online) { this.digOnline(c, null); return; }
+    this.crops.splice(i, 1); this.nearCrop = null;
     this.burst(c.gx + .5, c.gy + .5, "#b98a5a", 10);
     const nm = this.CROPINFO[c.crop] ? this.CROPINFO[c.crop].name : "작물";
     this.flash("🪏 " + nm + " 캐냈어요 · 빈 흙");
+  }
+  // 온라인: 삽으로 캐기(X키·삽 E 공용) — 서버가 삽 보유·타일을 검증
+  digOnline(c, msg) {
+    const rc = this.worldToRC(c.gx, c.gy); if (!rc) return;
+    Net.dig(this.worldId, rc.r, rc.c).then((res) => {
+      this.removeTile(res.tile_removed);
+      this.burst(c.gx + .5, c.gy + .5, "#b98a5a", 10);
+      const nm = (this.CROPINFO[res.crop] || {}).name || "작물";
+      this.flash(msg || "🪏 " + nm + " 캐냈어요 · 빈 흙");
+    }).catch((e) => this.apiFail(e));
   }
 
   // ---------- 텔레포트 ----------
@@ -468,6 +492,130 @@ class LumiaFarm {
     const m = this.myPlot;
     return m && gx >= m.x && gx < m.x + m.w && gy >= m.y && gy < m.y + m.h;
   }
+
+  // ---------- 서버 연동 (M2-2: net.js → v2 서버 권위 상태) ----------
+  // join 성공 → 온라인 모드: 모든 상태 변경을 서버가 확정하고, 응답으로 로컬 상태를 갱신한다.
+  // join 실패 → 오프라인 데모 모드: 기존 in-memory 로직 그대로.
+  async connect() {
+    if (typeof Net === "undefined") return false;
+    try {
+      await Net.login();
+      const snap = await Net.join(null, this.name);
+      this.online = true;
+      this.applySnapshot(snap);
+      this.flash("🌐 서버 연결 — 농장 데이터를 불러왔어요");
+      return true;
+    } catch (e) {
+      this.online = false;
+      return false;
+    }
+  }
+
+  // join/snapshot 응답 전체를 로컬 상태에 반영
+  applySnapshot(snap) {
+    this.worldId = snap.world.id;
+    if (snap.me) {
+      this.plotIndex = snap.me.plot_index;
+      if (snap.me.display_name) this.name = snap.me.display_name;
+      this.landLv = snap.me.land_lv || 1;
+    }
+    this.syncPlayer(snap.player);
+    this.syncInv(snap);
+    this.syncPets(snap.pets);
+    // 내 농지 작물 = 서버 타일이 전부. 다른 멤버 농지 렌더는 M3(presence)에서.
+    this.crops = this.crops.filter((c) => !this.inMyPlot(c.gx, c.gy));
+    for (const t of snap.tiles || []) { if (t.plot_index === this.plotIndex) this.applyTile(t); }
+    this.applyLandLevel(); // landLv 반영 + 재베이크
+    this.renderHud(); this.renderHotbar(); this.renderPetHud(true);
+  }
+
+  // 서버 player 페이로드 → 재화/레벨/물뿌리개/화분/알바
+  syncPlayer(p) {
+    if (!p) return;
+    this.gold = p.gold; this.luna = p.luna;
+    this.farmLevel = p.farm_level;
+    if (p.storage_lv !== this.storeLv) {
+      this.storeLv = p.storage_lv;
+      while (this.sto.length < this.storeCap()) this.sto.push(null);
+    }
+    this.canUses = p.wcan_uses;
+    this.canCd = p.wcan_cd_left || 0;
+    this.carry = p.carry || null; // {crop, mode, remaining} — 렌더는 .crop만 사용
+    if (p.alba) {
+      this.alba.plant.lv = p.alba.plant_lv;
+      this.alba.sell.lv = p.alba.sell_lv;
+      this.alba.feed.hired = !!p.alba.feed_hired;
+    }
+    this.renderHud();
+  }
+
+  // 서버 inv/sto 슬롯 페이로드({slot,key,qty}) → 로컬 슬롯 배열
+  syncInv(res) {
+    if (!res) return;
+    if (res.inv) {
+      this.inv = new Array(30).fill(null);
+      for (const s of res.inv) { if (s.slot >= 0 && s.slot < 30) this.inv[s.slot] = { key: s.key, count: s.qty }; }
+    }
+    if (res.sto) {
+      this.sto = new Array(this.storeCap()).fill(null);
+      for (const s of res.sto) { if (s.slot >= 0 && s.slot < this.sto.length) this.sto[s.slot] = { key: s.key, count: s.qty }; }
+    }
+    this.renderHotbar();
+  }
+
+  // 서버 펫 → 클라 펫. 같은 sid면 배회 위치/타이머를 보존한다.
+  petFromServer(sp, prev) {
+    const meta = this.PETS.find((p) => p.id === sp.species) || { id: sp.species, name: sp.species_name || sp.species, emoji: "🐾" };
+    let base = prev;
+    if (!base) {
+      const t0 = this.petPlotTarget(), t1 = this.petPlotTarget();
+      base = { x: t0.tx, y: t0.ty, tx: t1.tx, ty: t1.ty, anim: Math.random() * 4, dir: 1, moving: false, wait: 20 + Math.random() * 70, aTimer: Math.random() * 10, hTimer: Math.random() * 2 };
+    }
+    return Object.assign(base, {
+      sid: sp.id, id: meta.id, species: sp.species_name || meta.name, emoji: meta.emoji,
+      grade: sp.grade || "Common", ability: sp.ability || "harvest",
+      hunger: sp.hunger, satietyLeft: sp.satiety_left || 0, starving: !!sp.starving,
+    });
+  }
+  syncPets(list) {
+    if (!list) return;
+    const bySid = {};
+    for (const p of this.pets) { if (p.sid != null) bySid[p.sid] = p; }
+    this.pets = list.map((sp) => this.petFromServer(sp, bySid[sp.id]));
+    this.petNames = list.map((sp) => ((sp.custom_name || "").trim() || null)); // 커스텀 이름은 서버가 권위
+    while (this.petNames.length < this.PET_MAX) this.petNames.push(null);
+    this.renderPetHud(true);
+  }
+
+  // 내 농지 서버 좌표(r,c 0~9) ↔ 월드 타일 좌표
+  rcToWorld(r, c) {
+    const p = this.myPlot, mid = p.x + Math.floor(p.w / 2);
+    return { gx: c <= 4 ? p.x + 1 + c : mid + 1 + (c - 5), gy: p.y + 1 + r };
+  }
+  worldToRC(gx, gy) {
+    const p = this.myPlot;
+    return this.myLocalRC(p.x, p.y, p.w, p.h, gx, gy);
+  }
+
+  // 서버 tile_state → 로컬 작물 upsert (growLeft 의미가 클라 update 루프와 동일)
+  applyTile(t) {
+    if (!t) return null;
+    const w = this.rcToWorld(t.r, t.c);
+    let c = this.crops.find((cc) => cc.gx === w.gx && cc.gy === w.gy);
+    if (!c) { c = { gx: w.gx, gy: w.gy, sway: Math.random() * 6.28 }; this.crops.push(c); }
+    c.crop = t.crop; c.secTotal = t.sec_total;
+    c.stage = t.stage; c.ready = t.ready; c.growLeft = t.grow_left;
+    return c;
+  }
+  removeTile(rm) { // {plot_index, r, c}
+    if (!rm) return;
+    const w = this.rcToWorld(rm.r, rm.c);
+    const i = this.crops.findIndex((c) => c.gx === w.gx && c.gy === w.gy);
+    if (i >= 0) this.crops.splice(i, 1);
+    if (this.nearCrop && this.nearCrop.gx === w.gx && this.nearCrop.gy === w.gy) this.nearCrop = null;
+  }
+
+  apiFail(e) { this.flash((e && e.message) || "서버 요청에 실패했어요", false); }
 
   // ---------- HUD ----------
   fmt(n) { return n.toLocaleString("en-US"); }
@@ -939,6 +1087,17 @@ class LumiaFarm {
   }
 
   harvestCrop(c) {
+    if (this.online) {
+      const rc = this.worldToRC(c.gx, c.gy); if (!rc) return;
+      Net.harvest(this.worldId, rc.r, rc.c).then((res) => {
+        this.syncInv(res);
+        if (res.regrow) this.applyTile(res.tile); else this.removeTile(res.tile_removed);
+        this.burst(c.gx + .5, c.gy + .5, "#ffe14d", 14);
+        const info = this.CROPINFO[res.crop] || {};
+        this.flash("+1 " + (info.name || "") + (res.regrow ? " · ♻ 재성장 시작" : ""));
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     if (!this.addItem(this.inv, c.crop, 1)) { this.flash("인벤토리가 가득 찼어요", false); return; }
     this.burst(c.gx + .5, c.gy + .5, "#ffe14d", 14);
     const info = this.CROPINFO[c.crop] || {};
@@ -958,6 +1117,16 @@ class LumiaFarm {
 
     // 화분에 담은 작물은 도구와 무관하게 빈 흙에서 옮겨 심기
     if (this.carry && this.nearEmpty) {
+      if (this.online) {
+        const gx = this.nearEmpty.gx, gy = this.nearEmpty.gy;
+        const rc = this.worldToRC(gx, gy); if (!rc) return;
+        Net.potPlace(this.worldId, rc.r, rc.c).then((res) => {
+          this.applyTile(res.tile); this.syncPlayer(res.player); this.renderHotbar();
+          this.burst(gx + .5, gy + .5, "#8fd14f", 8);
+          this.flash("화분의 작물을 옮겨 심었어요");
+        }).catch((e) => this.apiFail(e));
+        return;
+      }
       const c = this.carry; c.gx = this.nearEmpty.gx; c.gy = this.nearEmpty.gy; this.crops.push(c); this.carry = null;
       this.burst(c.gx + .5, c.gy + .5, "#8fd14f", 8); this.renderHotbar();
       this.flash("화분의 작물을 옮겨 심었어요"); return;
@@ -968,13 +1137,25 @@ class LumiaFarm {
     const selInfo = selT ? this.itemInfo(selT.key) : null;
     const toolId = selInfo && selInfo.cat === "tool" ? selT.key.slice(5) : null;
     if (toolId === "shovel") {
-      if (this.nearCrop) { const i = this.crops.indexOf(this.nearCrop); if (i >= 0) this.crops.splice(i, 1); this.burst(this.nearCrop.gx + .5, this.nearCrop.gy + .5, "#a9743e", 10); this.flash("작물을 파냈어요"); }
+      if (this.nearCrop) {
+        if (this.online) { this.digOnline(this.nearCrop, "작물을 파냈어요"); return; }
+        const i = this.crops.indexOf(this.nearCrop); if (i >= 0) this.crops.splice(i, 1); this.burst(this.nearCrop.gx + .5, this.nearCrop.gy + .5, "#a9743e", 10); this.flash("작물을 파냈어요");
+      }
       else this.flash("작물 위에서 삽을 사용하세요", false);
       return;
     }
     if (toolId === "can") {
       if (this.nearCrop) {
         if (this.canCd > 0) { this.flash("물뿌리개 재사용 대기 " + this.fmtTime(this.canCd), false); return; }
+        if (this.online) {
+          const c = this.nearCrop, rc = this.worldToRC(c.gx, c.gy); if (!rc) return;
+          Net.water(this.worldId, rc.r, rc.c).then((res) => {
+            this.applyTile(res.tile); this.syncPlayer(res.player);
+            this.burst(c.gx + .5, c.gy + .5, "#5fc8ff", 8);
+            this.flash(this.canCd > 0 ? "💧 물주기 -5분 · 재사용 대기 " + this.fmtTime(this.canCd) : "💧 물주기 -5분 (남은 " + this.canUses + "회)");
+          }).catch((e) => this.apiFail(e));
+          return;
+        }
         this.advanceGrowth(this.nearCrop, 300);
         this.canUses--; if (this.canUses <= 0) { this.canUses = 5; this.canCd = 300; }
         this.burst(this.nearCrop.gx + .5, this.nearCrop.gy + .5, "#5fc8ff", 8);
@@ -984,7 +1165,18 @@ class LumiaFarm {
     }
     if (toolId === "pot") {
       if (this.carry) { this.flash("빈 흙에서 E로 옮겨 심으세요", false); return; }
-      if (this.nearCrop) { const i = this.crops.indexOf(this.nearCrop); if (i >= 0) this.crops.splice(i, 1); this.carry = this.nearCrop; this.removeKey(this.inv, "tool_pot", 1); this.renderHotbar(); this.burst(this.carry.gx + .5, this.carry.gy + .5, "#b08a4a", 8); this.flash("🪴 화분에 담았어요 · 빈 흙에서 E로 심기"); }
+      if (this.nearCrop) {
+        if (this.online) {
+          const c = this.nearCrop, rc = this.worldToRC(c.gx, c.gy); if (!rc) return;
+          Net.potPick(this.worldId, rc.r, rc.c).then((res) => {
+            this.removeTile(res.tile_removed); this.syncPlayer(res.player); this.syncInv(res);
+            this.burst(c.gx + .5, c.gy + .5, "#b08a4a", 8);
+            this.flash("🪴 화분에 담았어요 · 빈 흙에서 E로 심기");
+          }).catch((e) => this.apiFail(e));
+          return;
+        }
+        const i = this.crops.indexOf(this.nearCrop); if (i >= 0) this.crops.splice(i, 1); this.carry = this.nearCrop; this.removeKey(this.inv, "tool_pot", 1); this.renderHotbar(); this.burst(this.carry.gx + .5, this.carry.gy + .5, "#b08a4a", 8); this.flash("🪴 화분에 담았어요 · 빈 흙에서 E로 심기");
+      }
       else this.flash("옮길 작물 위에서 사용하세요", false);
       return;
     }
@@ -995,6 +1187,17 @@ class LumiaFarm {
       const info = sel ? this.itemInfo(sel.key) : null;
       if (!info || !info.seed) { this.flash("핫바에서 씨앗을 선택하세요", false); return; }
       const crop = info.crop;
+      if (this.online) {
+        const gx = this.nearEmpty.gx, gy = this.nearEmpty.gy;
+        const rc = this.worldToRC(gx, gy);
+        if (!rc) { this.flash("여긴 심을 수 없어요", false); return; }
+        Net.plant(this.worldId, rc.r, rc.c, crop).then((res) => {
+          this.applyTile(res.tile); this.syncInv(res);
+          this.burst(gx + .5, gy + .5, "#8fd14f", 8);
+          this.flash((this.CROPINFO[crop] ? this.CROPINFO[crop].name : "") + " 씨앗을 심었어요");
+        }).catch((e) => this.apiFail(e));
+        return;
+      }
       this.removeKey(this.inv, sel.key, 1);
       const sec = (this.CROPINFO[crop] || this.CROPINFO.carrot).secs;
       this.crops.push({ gx: this.nearEmpty.gx, gy: this.nearEmpty.gy, crop, stage: 0, ready: false, sway: Math.random() * 6.28, secTotal: sec, growLeft: sec / 3 });
@@ -1186,10 +1389,23 @@ class LumiaFarm {
   }
   doLandUpgrade() {
     if (this.landLv >= 19) { this.flash("이미 최대 단계", false); return; }
+    if (this.online) {
+      Net.upgrade("land", this.worldId).then((res) => {
+        this.syncPlayer(res.player); this.landLv = res.land_lv; this.applyLandLevel();
+        this.renderShop(); this.flash("땅 확장 완료! Lv " + res.land_lv);
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     if (this.buy(this.landUpgradeCost(this.landLv), "luna", "땅 확장")) { this.landLv++; this.applyLandLevel(); this.renderShop(); }
   }
   doStorageUpgrade() {
     if (this.storeLv >= 5) { this.flash("이미 최대 단계", false); return; }
+    if (this.online) {
+      Net.upgrade("storage").then((res) => { // storeLv/용량은 syncPlayer가 반영
+        this.syncPlayer(res.player); this.renderShop(); this.flash("보관함 확장 완료! Lv " + res.storage_lv);
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     if (this.buy(this.storageUpgradeCost(this.storeLv), "luna", "보관함 확장")) {
       this.storeLv++;
       while (this.sto.length < this.storeCap()) this.sto.push(null); // +64칸
@@ -1225,6 +1441,16 @@ class LumiaFarm {
   }
   buyEgg() {
     if (this.pets.length >= this.PET_MAX) { this.flash("펫은 최대 " + this.PET_MAX + "마리까지 장착할 수 있어요", false); return; }
+    if (this.online) {
+      Net.petEgg().then((res) => { // 부화 확률은 서버가 굴림
+        this.syncPlayer(res.player); this.syncPets(res.pets);
+        const h = res.hatched, pet = this.pets.find((p) => p.sid === h.id);
+        if (pet) this.burst(pet.x / this.TILE, pet.y / this.TILE, "#ffe14d", 16);
+        this.flash("🥚 부화! [" + this.gradeLabel(h.grade) + "] " + (h.species_name || h.species) + " · " + this.PET_ABILITIES[h.ability].label);
+        this.renderShop(); this.renderPetHud(true);
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     if (this.buy(this.EGG_PRICE, "luna", "펫 알")) {
       const pet = this.makePet();
       this.pets.push(pet);
@@ -1235,6 +1461,15 @@ class LumiaFarm {
   }
   sellPet(i) {
     const pt = this.pets[i]; if (!pt) return;
+    if (this.online && pt.sid != null) {
+      Net.petSell(pt.sid).then((res) => {
+        this.feedPickIdx = null;
+        this.syncPlayer(res.player); this.syncPets(res.pets);
+        this.flash(pt.species + " 분양 완료 · +" + this.fmt(res.luna_gain) + " LN");
+        this.renderShop(); this.renderPetHud(true);
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     this.pets.splice(i, 1);
     this.feedPickIdx = null;
     this.petNames.splice(i, 1); this.petNames.push(null); this.savePetNames(this.petNames);
@@ -1260,6 +1495,19 @@ class LumiaFarm {
     const T = this.TILE, gx = pet.x / T, gy = pet.y / T, ts = this.petTiers(pet);
     const c = this.crops.find((c) => c.ready && ts.includes((this.CROPINFO[c.crop] || {}).tier) && this.inMyPlot(c.gx, c.gy) && Math.abs(c.gx + .5 - gx) < 2.6 && Math.abs(c.gy + .5 - gy) < 2.6);
     if (!c) return;
+    if (this.online) { // 서버가 주기·티어·굶주림 검증 — 자동 작업 실패는 조용히 무시
+      if (pet.sid == null || pet.busy) return;
+      const rc = this.worldToRC(c.gx, c.gy); if (!rc) return;
+      pet.busy = true;
+      Net.petAbility(this.worldId, pet.sid, rc.r, rc.c).then((res) => {
+        this.syncInv(res); this.syncPlayer(res.player);
+        if (res.regrow) this.applyTile(res.tile); else this.removeTile(res.tile_removed);
+        this.burst(c.gx + .5, c.gy + .5, "#ffe14d", 12);
+        const info = this.CROPINFO[res.crop] || {};
+        this.petLog({ ...pet, name: this.petName(pet) }, "가 수확했어요", info.name, info.iconCrop, res.regrow ? "♻ 재성장 시작" : "", "#7fd14f");
+      }).catch(() => { }).finally(() => { pet.busy = false; });
+      return;
+    }
     if (this.addItem(this.inv, c.crop, 1)) {
       this.burst(c.gx + .5, c.gy + .5, "#ffe14d", 12);
       const info = this.CROPINFO[c.crop] || {};
@@ -1269,6 +1517,17 @@ class LumiaFarm {
     }
   }
   petSeed(pet) {
+    if (this.online) { // 씨앗 선정은 서버가 굴림
+      if (pet.sid == null || pet.busy) return;
+      pet.busy = true;
+      Net.petAbility(this.worldId, pet.sid).then((res) => {
+        this.syncInv(res); this.syncPlayer(res.player);
+        this.burst(pet.x / this.TILE, pet.y / this.TILE, "#8fd14f", 8);
+        const info = this.CROPINFO[res.seed] || {};
+        this.petLog({ ...pet, name: this.petName(pet) }, "가 씨앗을 찾았어요", info.name, info.iconSeed, "", "#8fd14f");
+      }).catch(() => { }).finally(() => { pet.busy = false; });
+      return;
+    }
     const ts = this.petTiers(pet);
     let keys = this.CROP_IDS.filter((k) => ts.includes((this.CROPINFO[k] || {}).tier));
     if (!keys.length) keys = this.CROP_IDS;
@@ -1280,6 +1539,16 @@ class LumiaFarm {
     }
   }
   petCoin(pet) {
+    if (this.online) { // 골드 획득량은 서버가 굴림
+      if (pet.sid == null || pet.busy) return;
+      pet.busy = true;
+      Net.petAbility(this.worldId, pet.sid).then((res) => {
+        this.syncPlayer(res.player);
+        this.burst(pet.x / this.TILE, pet.y / this.TILE, "#f7d271", 8);
+        this.petLog({ ...pet, name: this.petName(pet) }, "가 동전을 주웠어요", "+" + res.gold_gain + " G", null, "", "#f7d271");
+      }).catch(() => { }).finally(() => { pet.busy = false; });
+      return;
+    }
     const [lo, hi] = this.GRADE_COIN[pet.grade] || [8, 15];
     const g = lo + Math.floor(Math.random() * (hi - lo + 1));
     this.gold += g; this.renderHud();
@@ -1346,6 +1615,16 @@ class LumiaFarm {
     const fm = this.FEEDMAP[key] || { hunger: [0, 0, 0, 0], satiety: [0, 0, 0, 0] };
     const fill = fm.hunger[gi], sat = fm.satiety[gi];
     if (fill <= 0) { this.flash("🚫 " + ((this.CROPINFO[key] || {}).name || "") + "(으)론 " + this.gradeLabel(pet.grade) + " 펫을 못 채워요", false); return; }
+    if (this.online && pet.sid != null) {
+      Net.petFeed(pet.sid, key).then((res) => {
+        this.syncInv(res); this.syncPets(res.pets);
+        this.feedPickIdx = null; this.renderPetHud(true);
+        this.burst(pet.x / this.TILE, pet.y / this.TILE, "#ff9db0", 8);
+        const info = this.CROPINFO[key] || {};
+        this.petLog({ ...pet, name: this.petName(pet) }, "를 먹였어요", info.name, info.iconCrop, "+" + res.fill + " 배고픔 · 포만감 " + res.satiety + "초", "#ffb066");
+      }).catch((e) => { this.apiFail(e); this.feedPickIdx = null; this.renderPetHud(true); });
+      return;
+    }
     if (this.removeKey(this.inv, key, 1) < 1) { this.flash("먹이가 없어요", false); this.feedPickIdx = null; this.renderPetHud(true); return; }
     pet.hunger = Math.min(100, pet.hunger + fill);
     pet.satietyLeft = sat; pet.starving = false;
@@ -1483,6 +1762,13 @@ class LumiaFarm {
   buyTool(id) {
     // 삽/물뿌리개는 1회만 구매(영구 보유, 소모되지 않음)
     if (id !== "pot" && this.toolOwned(id) >= 1) { this.flash("이미 보유 중이에요", false); return; }
+    if (this.online) {
+      Net.toolBuy(id).then((res) => {
+        this.syncPlayer(res.player); this.syncInv(res); this.renderShop();
+        this.flash(this.TOOLINFO[id].name + " 구매 완료!");
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     if (this.buy(this.TOOLPRICE[id], "luna", this.TOOLINFO[id].name)) {
       if (!this.addItem(this.inv, "tool_" + id, 1)) this.flash("인벤토리가 가득 찼어요", false);
       this.renderHotbar(); this.renderShop();
@@ -1493,13 +1779,25 @@ class LumiaFarm {
     if (kind === "feed") {
       if (a.hired) { this.flash("이미 고용 중", false); return; }
       if (this.farmLevel < this.FEED_UNLOCK_LV) { this.flash("농장 Lv " + this.FEED_UNLOCK_LV + " 이상 필요", false); return; }
+      if (this.online) { this.hireOnline(kind, "펫 먹이 알바"); return; }
       if (this.buy(this.albaCost("feed"), "luna", "펫 먹이 알바")) { a.hired = true; this.renderShop(); }
       return;
     }
     if (a.lv >= a.max) { this.flash("이미 최대 레벨", false); return; }
+    if (this.online) { this.hireOnline(kind, kind === "plant" ? "심기 알바" : "판매 알바"); return; }
     if (this.buy(this.albaCost(kind), "luna", kind === "plant" ? "심기 알바" : "판매 알바")) { a.lv++; this.renderShop(); }
   }
+  hireOnline(kind, label) { // 알바 레벨은 syncPlayer(player.alba)가 반영
+    Net.hire(kind).then((res) => { this.syncPlayer(res.player); this.renderShop(); this.flash(label + " 고용 완료!"); }).catch((e) => this.apiFail(e));
+  }
   albaPlant() {
+    if (this.online) { // 자동 작업 — 실패(주기 대기 등)는 조용히 무시
+      Net.albaRun(this.worldId, "plant").then((res) => {
+        this.syncPlayer(res.player); this.syncInv(res);
+        if (res.tile) { const c = this.applyTile(res.tile); this.burst(c.gx + .5, c.gy + .5, "#8fd14f", 5); }
+      }).catch(() => { });
+      return;
+    }
     const p = this.myPlot; if (!p) return;
     const seedSlot = this.inv.find((s) => s && this.itemInfo(s.key).seed);
     if (!seedSlot) return;
@@ -1516,11 +1814,27 @@ class LumiaFarm {
     }
   }
   albaSell() {
+    if (this.online) {
+      Net.albaRun(this.worldId, "sell").then((res) => { this.syncPlayer(res.player); this.syncInv(res); }).catch(() => { });
+      return;
+    }
     let gain = 0;
     Object.keys(this.CROPINFO).forEach((k) => { const h = this.countKey(this.inv, k); if (h > 0) { gain += h * this.CROPINFO[k].sell; this.removeKey(this.inv, k, h); } });
     if (gain > 0) { this.luna += gain; this.renderHud(); this.renderHotbar(); }
   }
   albaFeed() {
+    if (this.online) {
+      Net.albaRun(this.worldId, "feed").then((res) => {
+        this.syncPlayer(res.player); this.syncInv(res);
+        if (res.pets) this.syncPets(res.pets);
+        for (const f of res.fed || []) {
+          const pet = this.pets.find((p) => p.sid === f.pet_id);
+          const info = this.CROPINFO[f.crop] || {};
+          if (pet) this.petLog({ ...pet, name: this.petName(pet) }, "를 먹였어요", info.name, info.iconCrop, "+" + f.fill + " 배고픔", "#ffb066");
+        }
+      }).catch(() => { });
+      return;
+    }
     // 배고픔 20% 미만 펫에게 인벤의 효과 있는 먹이를 자동 급여
     for (let i = 0; i < this.pets.length; i++) {
       const pet = this.pets[i];
@@ -1588,6 +1902,8 @@ class LumiaFarm {
     this.invDrag = null; this.invOver = null;
     this.hideInvTip();
     this.renderHotbar(); this.renderShop();
+    // 온라인: 즉시 반영(위) 후 서버 확정 — 서버는 동일한 splice 규칙으로 재기록
+    if (this.online) Net.invReorder(from, to).then((res) => { this.syncInv(res); this.renderShop(); }).catch((e) => this.apiFail(e));
   }
   hideInvTip() { if (this.hud.invTip) this.hud.invTip.hidden = true; }
   // 아이템 호버 툴팁 — 모달 오버레이 레이어(.shop-card)에 하나만 렌더 (스크롤 점프 방지)
@@ -1723,6 +2039,13 @@ class LumiaFarm {
   }
   buySeed(key) {
     const c = this.CROPINFO[key];
+    if (this.online) {
+      Net.seedBuy(key, 1).then((res) => {
+        this.syncPlayer(res.player); this.syncInv(res); this.renderShop();
+        this.flash(c.name + " 씨앗 구매 완료!");
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     if (this.buy(c.seed, c.luna ? "luna" : "gold", c.name + " 씨앗")) {
       if (!this.addItem(this.inv, key + "_seed", 1)) this.flash("인벤토리가 가득 찼어요", false);
       this.renderHotbar();
@@ -1733,6 +2056,13 @@ class LumiaFarm {
   sellCrop(key, all) {
     const have = this.countKey(this.inv, key);
     if (have <= 0) { this.flash("판매할 작물이 없어요", false); return; }
+    if (this.online) {
+      Net.cropSell(key, !!all).then((res) => {
+        this.syncPlayer(res.player); this.syncInv(res); this.renderShop();
+        this.flash("+" + this.fmt(res.luna_gain) + " LN");
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     const n = all ? have : 1;
     this.removeKey(this.inv, key, n);
     const gain = this.CROPINFO[key].sell * n;
@@ -1741,6 +2071,13 @@ class LumiaFarm {
     this.flash("+" + this.fmt(gain) + " LN");
   }
   sellAll() {
+    if (this.online) {
+      Net.cropSellAll().then((res) => {
+        this.syncPlayer(res.player); this.syncInv(res); this.renderShop();
+        this.flash("전체 판매 +" + this.fmt(res.luna_gain) + " LN");
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     let gain = 0;
     Object.keys(this.CROPINFO).forEach((k) => { const have = this.countKey(this.inv, k); if (have > 0) { gain += have * this.CROPINFO[k].sell; this.removeKey(this.inv, k, have); } });
     if (gain <= 0) { this.flash("판매할 작물이 없어요", false); return; }
@@ -1757,6 +2094,17 @@ class LumiaFarm {
   }
   doExchange() {
     const amt = this.exchAmt, dir = this.exchDir;
+    if (this.online) {
+      if (dir === "g2l" ? amt < 10 : amt < 1) { this.flash(dir === "g2l" ? "최소 10 G 부터" : "최소 1 LN 부터", false); return; }
+      Net.exchange(dir, amt).then((res) => {
+        this.syncPlayer(res.player);
+        this.exchAmt = 0; this.renderShop();
+        this.flash(dir === "g2l"
+          ? this.fmt(res.gold_spent) + " G → +" + this.fmt(res.luna_gain) + " LN"
+          : this.fmt(res.luna_spent) + " LN → +" + this.fmt(res.gold_gain) + " G");
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     if (dir === "g2l") {
       if (amt < 10) { this.flash("최소 10 G 부터", false); return; }
       const ln = Math.floor(amt / 10);
@@ -1774,6 +2122,13 @@ class LumiaFarm {
 
   // inv <-> sto 이동; amount = 1(클릭) 또는 'all'(Shift+클릭)
   transfer(dir, idx, amount) {
+    if (this.online) {
+      Net.invTransfer(dir, idx, amount === "all" ? "all" : (amount || 1)).then((res) => {
+        this.syncInv(res); this.renderShop();
+        this.flash(dir === "deposit" ? ("보관함에 " + res.moved + "개 넣었어요") : ("인벤토리로 " + res.moved + "개 꺼냈어요"));
+      }).catch((e) => this.apiFail(e));
+      return;
+    }
     const src = dir === "deposit" ? this.inv : this.sto, dst = dir === "deposit" ? this.sto : this.inv;
     const sl = src[idx]; if (!sl) return;
     const n = amount === "all" ? sl.count : Math.min(amount || 1, sl.count);
@@ -2068,15 +2423,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   const game = new LumiaFarm(canvas);
   window.__lumia = game; // 디버깅 편의
 
-  // 백엔드 골드 연동(가동 시). 실패하면 데모 값 유지.
-  try {
-    await login("demo");
-    const gold = await fetchGold();
-    if (gold !== null && gold !== undefined) {
-      game.gold = gold;
-      game.renderHud();
-    }
-  } catch (e) {
-    /* 백엔드 미가동 — 클라이언트 데모로 진행 */
-  }
+  // v2 백엔드 연동(net.js) — join 성공 시 서버 권위 모드, 실패하면 오프라인 데모로 동작
+  const ok = await game.connect();
+  if (!ok) console.warn("LUMIA Farm: 백엔드 미가동 — 오프라인 데모 모드");
 });
